@@ -30,8 +30,7 @@ class Database {
       min: parseInt(process.env.DB_MIN_CONNECTIONS || '2', 10), // Keep minimum connections
       idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '10000', 10), // Reduced timeout
       connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '3000', 10), // Faster timeout
-      acquireTimeoutMillis: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '5000', 10), // Add acquire timeout
-      statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || '10000', 10) // Add statement timeout
+      query_timeout: parseInt(process.env.DB_QUERY_TIMEOUT || '10000', 10) // Query timeout instead of statement_timeout
     };
 
     if (!config.connectionString) {
