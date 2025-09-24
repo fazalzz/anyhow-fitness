@@ -12,7 +12,7 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run frontend\"",
     "build": "tsc && vite build",
     "build:backend": "tsc -p src/tsconfig.json",
-    "start": "node dist/src/index.js",
+    "start": "node src/dist/src/index.js",
     "migrate": "ts-node -P tsconfig.node.json migrations/runMigrations.ts",
     "migrate:production": "cross-env NODE_ENV=production ts-node -P tsconfig.node.json migrations/runMigrations.ts",
     "migrate:test": "ts-node -P tsconfig.node.json src/utils/testDb.ts",
