@@ -16,6 +16,8 @@ const EditWorkoutModal: React.FC<{
     onCancel: () => void;
 }> = ({ workout, onSave, onCancel }) => {
     const [editedWorkout, setEditedWorkout] = useState<Workout>({ ...workout });
+    const { workouts } = useWorkout();
+    const { currentUser } = useAuth();
 
     const handleSave = () => {
         onSave(editedWorkout);
@@ -79,114 +81,229 @@ const EditWorkoutModal: React.FC<{
 
     const findExerciseName = (id: string) => EXERCISES.find(e => e.id === id)?.name || 'Unknown Exercise';
 
+    // Get previous workout history for this exercise
+    const getPreviousPerformance = (exerciseId: string, variation: string, brand: string) => {
+        if (!currentUser) return [];
+        
+        const previousWorkouts = workouts
+            .filter(w => w.userId === currentUser.id && w.id !== workout.id)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 3); // Get last 3 workouts
+
+        const previousSets = [];
+        for (const prevWorkout of previousWorkouts) {
+            const exercise = prevWorkout.exercises.find(ex => 
+                ex.exerciseId === exerciseId && 
+                ex.variation === variation && 
+                ex.brand === brand
+            );
+            if (exercise && exercise.sets.length > 0) {
+                previousSets.push({
+                    date: prevWorkout.date,
+                    sets: exercise.sets
+                });
+            }
+        }
+        return previousSets;
+    };
+
+    const copyFromPrevious = (exerciseIndex: number, previousSet: any) => {
+        const newSet = {
+            id: `new-${Date.now()}-${Math.random()}`,
+            weight: previousSet.weight,
+            reps: previousSet.reps,
+            pinWeight: previousSet.pinWeight,
+            isPR: false
+        };
+
+        setEditedWorkout(prev => ({
+            ...prev,
+            exercises: prev.exercises.map((ex, index) => 
+                index === exerciseIndex 
+                    ? { ...ex, sets: [...ex.sets, newSet] }
+                    : ex
+            )
+        }));
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-brand-bg rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b border-brand-border">
-                    <h2 className="text-xl font-bold">Edit Workout</h2>
-                    <div className="mt-4">
-                        <label className="block text-sm font-medium mb-2">Date</label>
-                        <input
-                            type="date"
-                            value={editedWorkout.date}
-                            onChange={(e) => setEditedWorkout(prev => ({ ...prev, date: e.target.value }))}
-                            className="w-full p-2 border border-brand-border rounded-lg bg-brand-surface"
-                        />
+            <div className="bg-brand-bg rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="bg-brand-surface-alt p-6 border-b border-brand-border">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-2xl font-bold text-brand-primary">Edit Workout</h2>
+                        <button
+                            onClick={onCancel}
+                            className="p-2 text-brand-secondary-text hover:text-brand-primary rounded-lg transition-colors"
+                            title="Close"
+                        >
+                            ✕
+                        </button>
                     </div>
-                    <div className="mt-4">
-                        <label className="block text-sm font-medium mb-2">Branch</label>
-                        <input
-                            type="text"
-                            value={editedWorkout.branch}
-                            onChange={(e) => setEditedWorkout(prev => ({ ...prev, branch: e.target.value }))}
-                            className="w-full p-2 border border-brand-border rounded-lg bg-brand-surface"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold mb-2 text-brand-secondary-text">Workout Date</label>
+                            <input
+                                type="date"
+                                value={editedWorkout.date}
+                                onChange={(e) => setEditedWorkout(prev => ({ ...prev, date: e.target.value }))}
+                                className="w-full p-3 border border-brand-border rounded-lg bg-brand-surface focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-2 text-brand-secondary-text">Gym Location</label>
+                            <input
+                                type="text"
+                                value={editedWorkout.branch}
+                                onChange={(e) => setEditedWorkout(prev => ({ ...prev, branch: e.target.value }))}
+                                className="w-full p-3 border border-brand-border rounded-lg bg-brand-surface focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+                                placeholder="Enter gym name"
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-4 p-3 bg-brand-surface rounded-lg">
+                        <p className="text-sm text-brand-secondary-text">
+                            <span className="font-semibold">💡 Tip:</span> Click on previous performance values to quickly copy them to a new set.
+                        </p>
                     </div>
                 </div>
 
                 <div className="p-6 space-y-6">
-                    {editedWorkout.exercises.map((exercise, exerciseIndex) => (
-                        <div key={exercise.id} className="border border-brand-border rounded-lg p-4">
-                            <h3 className="font-semibold text-lg mb-4">
-                                {findExerciseName(exercise.exerciseId)} - {exercise.variation} ({exercise.brand})
-                            </h3>
-                            
-                            <div className="space-y-2">
-                                {exercise.sets.map((set, setIndex) => (
-                                    <div key={set.id} className="flex items-center gap-2 p-2 bg-brand-surface rounded">
-                                        <span className="text-sm font-medium w-12">Set {setIndex + 1}</span>
-                                        <input
-                                            type="number"
-                                            placeholder="Weight"
-                                            value={set.weight}
-                                            onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'weight', parseFloat(e.target.value) || 0)}
-                                            className="w-20 p-1 border border-brand-border rounded text-center"
-                                        />
-                                        <span className="text-sm">kg</span>
-                                        {set.pinWeight !== undefined && (
-                                            <>
-                                                <span className="text-sm">+</span>
-                                                <input
-                                                    type="number"
-                                                    placeholder="Pin"
-                                                    value={set.pinWeight || ''}
-                                                    onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'pinWeight', parseFloat(e.target.value) || undefined)}
-                                                    className="w-16 p-1 border border-brand-border rounded text-center"
-                                                />
-                                                <span className="text-sm">kg</span>
-                                            </>
-                                        )}
-                                        <span className="text-sm">×</span>
-                                        <input
-                                            type="number"
-                                            placeholder="Reps"
-                                            value={set.reps}
-                                            onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'reps', parseInt(e.target.value) || 0)}
-                                            className="w-16 p-1 border border-brand-border rounded text-center"
-                                        />
-                                        <span className="text-sm">reps</span>
-                                        <label className="flex items-center gap-1">
-                                            <input
-                                                type="checkbox"
-                                                checked={set.isPR}
-                                                onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'isPR', e.target.checked)}
-                                            />
-                                            <span className="text-sm">PR</span>
-                                        </label>
-                                        {exercise.sets.length > 1 && (
-                                            <button
-                                                onClick={() => removeSet(exerciseIndex, setIndex)}
-                                                className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded"
-                                            >
-                                                🗑️
-                                            </button>
-                                        )}
+                    {editedWorkout.exercises.map((exercise, exerciseIndex) => {
+                        const previousPerformance = getPreviousPerformance(exercise.exerciseId, exercise.variation, exercise.brand);
+                        
+                        return (
+                            <div key={exercise.id} className="border border-brand-border rounded-lg overflow-hidden">
+                                <div className="bg-brand-surface-alt p-4">
+                                    <h3 className="font-semibold text-lg mb-2">
+                                        {findExerciseName(exercise.exerciseId)} - {exercise.variation}
+                                    </h3>
+                                    <p className="text-sm text-brand-secondary-text">Equipment: {exercise.brand}</p>
+                                </div>
+
+                                <div className="p-4">
+                                    {/* Previous Performance Section */}
+                                    {previousPerformance.length > 0 && (
+                                        <div className="mb-4 p-3 bg-brand-surface rounded-lg">
+                                            <h4 className="text-sm font-semibold mb-2 text-brand-secondary-text">Previous Performance</h4>
+                                            <div className="space-y-2">
+                                                {previousPerformance.map((prev, prevIndex) => (
+                                                    <div key={prevIndex} className="text-xs">
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="font-medium">{new Date(prev.date).toLocaleDateString('en-GB')}</span>
+                                                            <span className="text-brand-secondary-text">{prev.sets.length} sets</span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {prev.sets.map((set, setIdx) => (
+                                                                <button
+                                                                    key={setIdx}
+                                                                    onClick={() => copyFromPrevious(exerciseIndex, set)}
+                                                                    className="px-2 py-1 bg-brand-border text-brand-primary rounded text-xs hover:bg-brand-primary hover:text-brand-primary-text transition-colors"
+                                                                    title="Click to copy this set"
+                                                                >
+                                                                    {set.weight}{set.pinWeight ? `+${set.pinWeight}` : ''}kg × {set.reps}
+                                                                    {set.isPR && <span className="text-yellow-500 ml-1">★</span>}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Current Sets Section */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-semibold text-brand-primary">Current Sets</h4>
+                                        {exercise.sets.map((set, setIndex) => (
+                                            <div key={set.id} className="bg-brand-surface rounded-lg p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-sm font-medium">Set {setIndex + 1}</span>
+                                                    {exercise.sets.length > 1 && (
+                                                        <button
+                                                            onClick={() => removeSet(exerciseIndex, setIndex)}
+                                                            className="p-1 text-red-500 hover:bg-red-100 rounded transition-colors"
+                                                            title="Remove set"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                                    <div>
+                                                        <label className="block text-xs text-brand-secondary-text mb-1">Weight (kg)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={set.weight}
+                                                            onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'weight', parseFloat(e.target.value) || 0)}
+                                                            className="w-full p-2 border border-brand-border rounded text-center focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+                                                        />
+                                                    </div>
+                                                    {set.pinWeight !== undefined && (
+                                                        <div>
+                                                            <label className="block text-xs text-brand-secondary-text mb-1">Pin Weight (kg)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={set.pinWeight || ''}
+                                                                onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'pinWeight', parseFloat(e.target.value) || undefined)}
+                                                                className="w-full p-2 border border-brand-border rounded text-center focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <label className="block text-xs text-brand-secondary-text mb-1">Reps</label>
+                                                        <input
+                                                            type="number"
+                                                            value={set.reps}
+                                                            onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'reps', parseInt(e.target.value) || 0)}
+                                                            className="w-full p-2 border border-brand-border rounded text-center focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-end">
+                                                        <label className="flex items-center gap-2 p-2 bg-brand-surface-alt rounded">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={set.isPR}
+                                                                onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'isPR', e.target.checked)}
+                                                                className="rounded"
+                                                            />
+                                                            <span className="text-sm font-medium">PR</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => addSet(exerciseIndex)}
+                                            className="w-full p-3 border-2 border-dashed border-brand-border rounded-lg text-brand-secondary-text hover:bg-brand-surface hover:border-brand-primary transition-colors"
+                                        >
+                                            + Add Set
+                                        </button>
                                     </div>
-                                ))}
-                                <button
-                                    onClick={() => addSet(exerciseIndex)}
-                                    className="w-full p-2 border-2 border-dashed border-brand-border rounded-lg text-brand-secondary-text hover:bg-brand-surface transition-colors"
-                                >
-                                    + Add Set
-                                </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
-                <div className="p-6 border-t border-brand-border flex gap-4">
-                    <button
-                        onClick={onCancel}
-                        className="flex-1 p-3 border border-brand-border rounded-lg hover:bg-brand-surface transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="flex-1 p-3 bg-brand-primary text-brand-primary-text rounded-lg hover:bg-brand-secondary transition-colors"
-                    >
-                        Save Changes
-                    </button>
+                <div className="bg-brand-surface-alt p-6 border-t border-brand-border">
+                    <div className="flex gap-4">
+                        <button
+                            onClick={onCancel}
+                            className="flex-1 p-3 border border-brand-border rounded-lg hover:bg-brand-surface transition-colors font-semibold"
+                        >
+                            Cancel Changes
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            className="flex-1 p-3 bg-brand-primary text-brand-primary-text rounded-lg hover:bg-brand-secondary transition-colors font-semibold shadow-lg"
+                        >
+                            Save Workout
+                        </button>
+                    </div>
+                    <p className="text-xs text-brand-secondary-text mt-3 text-center">
+                        Changes will be saved immediately and sync across your workout history.
+                    </p>
                 </div>
             </div>
         </div>
