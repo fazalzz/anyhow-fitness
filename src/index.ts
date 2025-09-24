@@ -28,6 +28,7 @@ import workoutRoutes from './routes/workouts';
 import postRoutes from './routes/posts';
 import bodyWeightRoutes from './routes/bodyweight';
 import friendshipRoutes from './routes/friendships';
+import arkkiesRoutes from './routes/arkkies';
 import gymRoutes from './routes/gyms';
 
 const app = express();
@@ -69,6 +70,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/bodyweight', bodyWeightRoutes);
 app.use('/api/friendships', friendshipRoutes);
 app.use('/api/gyms', gymRoutes);
+app.use('/api/arkkies', arkkiesRoutes);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {

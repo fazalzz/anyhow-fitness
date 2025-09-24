@@ -5,10 +5,11 @@ import NewWorkout from './WorkoutSession';
 import Stats from './Stats';
 import { SocialFeed } from './SocialFeed';
 import Profile from './Settings';
-import { ChartIcon, UsersIcon, SettingsIcon } from './icons';
+import GymAccess from './GymAccess';
+import { ChartIcon, UsersIcon, SettingsIcon, DumbbellIcon } from './icons';
 import Logo from './Logo';
 
-type View = 'FEED' | 'STATS' | 'SETTINGS' | 'NEW_WORKOUT';
+type View = 'FEED' | 'STATS' | 'SETTINGS' | 'GYM_ACCESS' | 'NEW_WORKOUT';
 
 const Dashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -36,6 +37,8 @@ const Dashboard: React.FC = () => {
         return <SocialFeed onStartWorkout={startWorkout} />;
       case 'SETTINGS':
         return <Profile onBack={goBack} />;
+      case 'GYM_ACCESS':
+        return <GymAccess onBack={goBack} />;
       default:
         return <SocialFeed onStartWorkout={startWorkout} />;
     }
@@ -59,15 +62,19 @@ const Dashboard: React.FC = () => {
       
       {activeView !== 'NEW_WORKOUT' && (
           <nav className="flex justify-around p-2 bg-brand-bg shadow-inner">
-            <button onClick={() => setActiveView('FEED')} className={`flex flex-col items-center p-2 rounded-lg w-1/3 ${activeView === 'FEED' ? 'text-brand-primary' : 'text-brand-secondary-text'}`}>
+            <button onClick={() => setActiveView('FEED')} className={`flex flex-col items-center p-2 rounded-lg w-1/4 ${activeView === 'FEED' ? 'text-brand-primary' : 'text-brand-secondary-text'}`}>
               <UsersIcon />
               <span className="text-xs mt-1">Feed</span>
             </button>
-            <button onClick={() => setActiveView('STATS')} className={`flex flex-col items-center p-2 rounded-lg w-1/3 ${activeView === 'STATS' ? 'text-brand-primary' : 'text-brand-secondary-text'}`}>
+            <button onClick={() => setActiveView('STATS')} className={`flex flex-col items-center p-2 rounded-lg w-1/4 ${activeView === 'STATS' ? 'text-brand-primary' : 'text-brand-secondary-text'}`}>
               <ChartIcon />
               <span className="text-xs mt-1">Stats</span>
             </button>
-            <button onClick={() => setActiveView('SETTINGS')} className={`flex flex-col items-center p-2 rounded-lg w-1/3 ${activeView === 'SETTINGS' ? 'text-brand-primary' : 'text-brand-secondary-text'}`}>
+            <button onClick={() => setActiveView('GYM_ACCESS')} className={`flex flex-col items-center p-2 rounded-lg w-1/4 ${activeView === 'GYM_ACCESS' ? 'text-brand-primary' : 'text-brand-secondary-text'}`}>
+              <DumbbellIcon />
+              <span className="text-xs mt-1">Gym</span>
+            </button>
+            <button onClick={() => setActiveView('SETTINGS')} className={`flex flex-col items-center p-2 rounded-lg w-1/4 ${activeView === 'SETTINGS' ? 'text-brand-primary' : 'text-brand-secondary-text'}`}>
               <SettingsIcon />
               <span className="text-xs mt-1">Profile</span>
             </button>
