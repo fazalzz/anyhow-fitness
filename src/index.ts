@@ -51,7 +51,11 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:4173',
-    'http://localhost:4174'
+    'http://localhost:4174',
+    // Add environment variable for production frontend URL
+    ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
+    // Allow all vercel.app subdomains in production
+    /\.vercel\.app$/
   ],
   credentials: true
 }));
