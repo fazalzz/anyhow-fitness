@@ -38,18 +38,18 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [targetOutlet, setTargetOutlet] = useState('');
   const [selectedDoor, setSelectedDoor] = useState('');
 
-  // Real ARK gym outlets
+  // Real Arkkies gym outlets
   const [outlets, setOutlets] = useState<GymOutlet[]>([
-    { id: 'bishan', name: 'ARK Bishan', location: 'Bishan' },
-    { id: 'hougang', name: 'ARK Hougang', location: 'Hougang' },
-    { id: 'choa-chu-kang', name: 'ARK Choa Chu Kang', location: 'Choa Chu Kang' },
-    { id: 'jurong', name: 'ARK Jurong', location: 'Jurong' },
-    { id: 'geylang', name: 'ARK Geylang', location: 'Geylang' },
-    { id: 'keat-hong', name: 'ARK Keat Hong', location: 'Keat Hong' },
-    { id: 'serangoon-north', name: 'ARK Serangoon North', location: 'Serangoon North' },
-    { id: 'buangkok', name: 'ARK Buangkok', location: 'Buangkok' },
-    { id: 'jurong-spring-cc', name: 'ARK Jurong Spring CC', location: 'Jurong Spring CC' },
-    { id: 'downtown-east', name: 'ARK Downtown East', location: 'Downtown East' }
+    { id: 'bishan', name: 'Arkkies Bishan', location: 'Bishan' },
+    { id: 'hougang', name: 'Arkkies Hougang', location: 'Hougang' },
+    { id: 'choa-chu-kang', name: 'Arkkies Choa Chu Kang', location: 'Choa Chu Kang' },
+    { id: 'jurong', name: 'Arkkies Jurong', location: 'Jurong' },
+    { id: 'geylang', name: 'Arkkies Geylang', location: 'Geylang' },
+    { id: 'keat-hong', name: 'Arkkies Keat Hong', location: 'Keat Hong' },
+    { id: 'serangoon-north', name: 'Arkkies Serangoon North', location: 'Serangoon North' },
+    { id: 'buangkok', name: 'Arkkies Buangkok', location: 'Buangkok' },
+    { id: 'jurong-spring-cc', name: 'Arkkies Jurong Spring CC', location: 'Jurong Spring CC' },
+    { id: 'downtown-east', name: 'Arkkies Downtown East', location: 'Downtown East' }
   ]);
 
   const [doors] = useState<string[]>([

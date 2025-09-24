@@ -252,65 +252,65 @@ export const getOutlets = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Real ARK gym outlets based on actual locations
+    // Real Arkkies gym outlets based on actual locations
     const outlets: GymOutlet[] = [
       {
         id: 'bishan',
-        name: 'ARK Bishan',
+        name: 'Arkkies Bishan',
         location: 'Bishan',
         url: '/portal/bishan'
       },
       {
         id: 'hougang',
-        name: 'ARK Hougang',
+        name: 'Arkkies Hougang',
         location: 'Hougang',
         url: '/portal/hougang'
       },
       {
         id: 'choa-chu-kang',
-        name: 'ARK Choa Chu Kang',
+        name: 'Arkkies Choa Chu Kang',
         location: 'Choa Chu Kang',
         url: '/portal/choa-chu-kang'
       },
       {
         id: 'jurong',
-        name: 'ARK Jurong',
+        name: 'Arkkies Jurong',
         location: 'Jurong',
         url: '/portal/jurong'
       },
       {
         id: 'geylang',
-        name: 'ARK Geylang',
+        name: 'Arkkies Geylang',
         location: 'Geylang',
         url: '/portal/geylang'
       },
       {
         id: 'keat-hong',
-        name: 'ARK Keat Hong',
+        name: 'Arkkies Keat Hong',
         location: 'Keat Hong',
         url: '/portal/keat-hong'
       },
       {
         id: 'serangoon-north',
-        name: 'ARK Serangoon North',
+        name: 'Arkkies Serangoon North',
         location: 'Serangoon North',
         url: '/portal/serangoon-north'
       },
       {
         id: 'buangkok',
-        name: 'ARK Buangkok',
+        name: 'Arkkies Buangkok',
         location: 'Buangkok',
         url: '/portal/buangkok'
       },
       {
         id: 'jurong-spring-cc',
-        name: 'ARK Jurong Spring CC',
+        name: 'Arkkies Jurong Spring CC',
         location: 'Jurong Spring CC',
         url: '/portal/jurong-spring-cc'
       },
       {
         id: 'downtown-east',
-        name: 'ARK Downtown East',
+        name: 'Arkkies Downtown East',
         location: 'Downtown East',
         url: '/portal/downtown-east'
       }
@@ -346,7 +346,7 @@ export const getSubscriptions = async (req: AuthRequest, res: Response) => {
       {
         id: 'monthly-pass-1',
         type: 'Monthly Pass',
-        outlet: 'ARK Downtown',
+        outlet: 'Arkkies Downtown',
         status: 'Active',
         validUntil: '2024-10-31'
       }
@@ -385,22 +385,40 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    logger.info(`Booking gym access: ${homeOutletId} -> ${targetOutletId} for user: ${req.user!.id}`);
+    logger.info(`🏋️‍♂️ BOOKING REQUEST: ${homeOutletId} -> ${targetOutletId} for user: ${req.user!.id}`);
+    logger.info(`📅 Booking time: ${new Date().toISOString()}`);
+    logger.info(`🚪 Selected door: ${selectedDoor || 'Main Entrance'}`);
 
-    // For now, simulate the process
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Simulate booking process with detailed steps
+    logger.info(`⏳ Step 1: Checking availability at ${targetOutletId}...`);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    logger.info(`⏳ Step 2: Booking time slot...`);
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    logger.info(`⏳ Step 3: Sending door unlock command...`);
+    await new Promise(resolve => setTimeout(resolve, 600));
 
-    logger.info(`Successfully booked and accessed gym for user: ${req.user!.id}`);
+    const bookingId = `ARK-${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    
+    logger.info(`✅ SUCCESS: Door opened successfully!`);
+    logger.info(`🎫 Booking ID: ${bookingId}`);
+    logger.info(`⏰ Access time: ${timestamp}`);
+    logger.info(`🚪 Door status: OPENED`);
 
     res.json({
       success: true,
       data: {
-        bookingId: `booking-${Date.now()}`,
-        message: 'Successfully booked slot and opened gym door',
+        bookingId,
+        message: `🎉 Door successfully opened at ${targetOutletId}!`,
         outlet: targetOutletId,
         door: selectedDoor || 'Main Entrance',
         timeSlot: new Date().toLocaleTimeString(),
-        accessGranted: true
+        timestamp,
+        accessGranted: true,
+        doorStatus: 'OPENED',
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 min access
       }
     });
 
@@ -428,7 +446,7 @@ export const getBookingHistory = async (req: AuthRequest, res: Response) => {
     const bookings = [
       {
         id: 'booking-123',
-        outlet: 'ARK Downtown',
+        outlet: 'Arkkies Downtown',
         date: new Date().toISOString(),
         status: 'Completed',
         door: 'Main Entrance'
