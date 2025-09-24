@@ -1,0 +1,112 @@
+import { Pool, PoolConfig, QueryResult } from 'pg';
+import { logger } from '../utils/logger';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
+});
+
+export { pool };
+
+interface DatabaseConfig {
+  connectionString?: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  user?: string;
+  password?: string;
+  ssl?: boolean | { rejectUnauthorized: boolean };
+}
+
+class Database {
+  private static instance: Database;
+  private pool: Pool;
+  
+  private constructor(config: DatabaseConfig) {
+    const poolConfig: PoolConfig = {
+      connectionString: config.connectionString,
+      ssl: config.ssl || (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false),
+      max: parseInt(process.env.DB_MAX_CONNECTIONS || '20', 10),
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '5000', 10)
+    };
+
+    if (!config.connectionString) {
+      poolConfig.host = config.host;
+      poolConfig.port = config.port;
+      poolConfig.database = config.database;
+      poolConfig.user = config.user;
+      poolConfig.password = config.password;
+    }
+
+    this.pool = new Pool(poolConfig);
+
+    // Handle pool errors
+    this.pool.on('error', (err) => {
+      logger.error('Unexpected error on idle database client', err);
+    });
+
+    // Handle process termination
+    process.on('SIGTERM', () => this.closePool());
+    process.on('SIGINT', () => this.closePool());
+  }
+
+  public static getInstance(): Database {
+    if (!Database.instance) {
+      const config: DatabaseConfig = {};
+      
+      if (process.env.DATABASE_URL) {
+        config.connectionString = process.env.DATABASE_URL;
+      } else {
+        config.host = process.env.DB_HOST;
+        config.port = parseInt(process.env.DB_PORT || '5432', 10);
+        config.database = process.env.DB_NAME;
+        config.user = process.env.DB_USER;
+        config.password = process.env.DB_PASSWORD;
+      }
+
+      if (!config.connectionString && (!config.host || !config.database || !config.user)) {
+        throw new Error('Database configuration is incomplete. Check environment variables.');
+      }
+
+      Database.instance = new Database(config);
+    }
+    return Database.instance;
+  }
+
+  public async query(text: string, params?: any[]): Promise<any> {
+    try {
+      const result = await this.pool.query(text, params);
+      return result;
+    } catch (error) {
+      console.error('Query error:', error);
+      throw error;
+    }
+  }
+
+  public async getClient() {
+    return await this.pool.connect();
+  }
+
+  private async closePool() {
+    try {
+      await this.pool.end();
+      logger.info('Database pool has been closed');
+    } catch (error) {
+      logger.error('Error closing database pool', error);
+      process.exit(1);
+    }
+  }
+
+  public async healthCheck(): Promise<boolean> {
+    try {
+      await this.query('SELECT 1');
+      return true;
+    } catch (error) {
+      logger.error('Database health check failed', error);
+      return false;
+    }
+  }
+}
+
+export const db = Database.getInstance();

@@ -1,0 +1,217 @@
+import React, { useState, FormEvent } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { FrontendUser as User } from '../types';
+import { ActionButton } from './forms/ActionButton';
+import { FormInput } from './forms/FormInput';
+import Logo from './Logo';
+
+type View = 'LOGIN' | 'REGISTER' | 'FORGOT_PIN_NAME' | 'FORGOT_PIN_CODE' | 'FORGOT_PIN_RESET';
+
+interface FormFields {
+  name: string;
+  pin: string;
+  confirmPin: string;
+  phoneNumber: string;
+  verificationCode: string;
+}
+
+const MOCK_VERIFICATION_CODE = '123456';
+
+
+/*const FayeLogoOld = () => (
+    <img 
+        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAACXBIWXMAACE4AAAhOAFFljFgAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAjLSURBVHja7d1rbtxIgebh9xSAyMsKyQpICshGoB0huEHKDkAGQkZARmBGoA6QHRDpCMgIyA5IBV9G4uLHST1GjBw58iXg46P/P5/nnFObtGmafr5+/wAAAFKa8L8DAAAkMIAAAJBAAAIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgIAQAICAEACAgIAQAICAEACAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIA-97AAAAAElFTkSuQmCC"
+        alt="Faye Logo" 
+        className="w-32 h-32 mx-auto mb-4"
+    />
+); */
+
+// Removed unused FayeLogoOld component
+
+interface LoginScreenProps {}
+
+const LoginScreen: React.FC<LoginScreenProps> = () => {
+  const { login, register, findUserByName, updateUserPin, loading, error: authError } = useAuth();
+  
+  // State
+  const [view, setView] = useState<View>('LOGIN');
+  const [formState, setFormState] = useState<FormFields & {error: string; info: string}>({
+    name: '',
+    pin: '',
+    confirmPin: '',
+    phoneNumber: '',
+    verificationCode: '',
+    error: '',
+    info: ''
+  });
+  const [userToRecover, setUserToRecover] = useState<User | null>(null);
+
+  const { name, pin, confirmPin, phoneNumber, verificationCode, error, info } = formState;
+
+  const updateFormField = (field: keyof FormFields, value: string) => {
+    setFormState(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetFormState = () => {
+    setFormState({
+      name: '',
+      pin: '',
+      confirmPin: '',
+      phoneNumber: '',
+      verificationCode: '',
+      error: '',
+      info: ''
+    });
+    setUserToRecover(null);
+  }
+  
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormState(prev => ({ ...prev, error: '' }));
+    const result = await login(name, pin);
+    if (!result.success) {
+      setFormState(prev => ({ ...prev, error: result.error || 'Login failed.' }));
+    }
+  };
+
+  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormState(prev => ({ ...prev, error: '' }));
+    if (!name.trim()) return setFormState(prev => ({ ...prev, error: 'Please enter a name.' }));
+    if (!/^\d{8}$/.test(phoneNumber)) return setFormState(prev => ({ ...prev, error: 'Phone number must be 8 digits.' }));
+    if (pin.length !== 8) return setFormState(prev => ({ ...prev, error: 'PIN must be 8 digits.' }));
+    if (pin !== confirmPin) return setFormState(prev => ({ ...prev, error: 'PINs do not match.' }));
+    
+    await register(name, pin, phoneNumber);
+  };
+
+  const handleFindUser = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormState(prev => ({ ...prev, error: '' }));
+    try {
+        const user = await findUserByName(name);
+        if (user && user.phoneNumber) {
+            setUserToRecover(user);
+            const maskedPhone = user.phoneNumber.slice(-4).padStart(8, '*');
+            setFormState(prev => ({
+              ...prev,
+              info: `Verification code sent to ${maskedPhone}. For this demo, your code is: ${MOCK_VERIFICATION_CODE}`
+            }));
+            setView('FORGOT_PIN_CODE');
+        } else {
+            setFormState(prev => ({ ...prev, error: 'No user found with that name.' }));
+        }
+    } catch (error) {
+        console.error('Error finding user:', error);
+        setFormState(prev => ({ ...prev, error: 'Unable to find user. Please try again.' }));
+    }
+  };
+
+  const handleVerifyCode = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormState(prev => ({ ...prev, error: '' }));
+    if (verificationCode === MOCK_VERIFICATION_CODE) {
+        setFormState(prev => ({ ...prev, info: '' }));
+        setView('FORGOT_PIN_RESET');
+    } else {
+        setFormState(prev => ({ ...prev, error: 'Invalid verification code.' }));
+    }
+  };
+
+  const handleResetPin = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormState(prev => ({ ...prev, error: '' }));
+    if (!userToRecover) return setFormState(prev => ({ ...prev, error: 'An unexpected error occurred.' }));
+    if (pin.length !== 8) return setFormState(prev => ({ ...prev, error: 'New PIN must be 8 digits.' }));
+    if (pin !== confirmPin) return setFormState(prev => ({ ...prev, error: 'PINs do not match.' }));
+
+    await updateUserPin(userToRecover.id, pin);
+    resetFormState();
+    setView('LOGIN');
+  };
+
+  const changeView = (newView: View) => {
+      resetFormState();
+      setView(newView);
+  }
+
+  const renderTitle = () => {
+      switch (view) {
+          case 'LOGIN': return 'Welcome Back';
+          case 'REGISTER': return 'Create Account';
+          case 'FORGOT_PIN_NAME': return 'Forgot PIN';
+          case 'FORGOT_PIN_CODE': return 'Verify Code';
+          case 'FORGOT_PIN_RESET': return 'Reset PIN';
+      }
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-brand-bg">
+      <Logo size="xlarge" className="mb-4" />
+      <h1 className="text-4xl font-bold text-brand-primary mb-2">Anyhow Fitness</h1>
+      <h2 className="text-2xl font-semibold text-brand-primary mb-8">{renderTitle()}</h2>
+      
+      <div className="w-full max-w-sm">
+        {(error || authError) && <p className="bg-brand-surface border border-brand-border text-brand-primary text-xs p-3 rounded mb-4">{error || authError}</p>}
+        {info && <p className="bg-brand-surface border border-brand-border text-brand-secondary-text text-xs p-3 rounded mb-4">{info}</p>}
+
+        {view === 'LOGIN' && (
+            <form onSubmit={handleLogin}>
+                <FormInput id="name" label="Name" type="text" value={name} onChange={(value) => updateFormField('name', value)} />
+                <FormInput id="pin" label="PIN" type="password" value={pin} maxLength={8} onChange={(value) => updateFormField('pin', value)} />
+                <ActionButton loading={loading}>Login</ActionButton>
+            </form>
+        )}
+
+        {view === 'REGISTER' && (
+            <form onSubmit={handleRegister}>
+                <FormInput id="name" label="Name" type="text" value={name} onChange={(value) => updateFormField('name', value)} />
+                <FormInput id="phoneNumber" label="Phone Number" type="tel" value={phoneNumber} maxLength={8} onChange={(value) => updateFormField('phoneNumber', value)} />
+                <FormInput id="pin" label="PIN (8 digits)" type="password" value={pin} maxLength={8} onChange={(value) => updateFormField('pin', value)} />
+                <FormInput id="confirmPin" label="Confirm PIN" type="password" value={confirmPin} maxLength={8} onChange={(value) => updateFormField('confirmPin', value)} />
+                <ActionButton loading={loading}>Register</ActionButton>
+            </form>
+        )}
+
+        {view === 'FORGOT_PIN_NAME' && (
+            <form onSubmit={handleFindUser}>
+                <FormInput id="name" label="Name" type="text" value={name} onChange={(value) => updateFormField('name', value)} />
+                <ActionButton loading={loading}>Find Account</ActionButton>
+            </form>
+        )}
+        
+        {view === 'FORGOT_PIN_CODE' && (
+            <form onSubmit={handleVerifyCode}>
+                <FormInput id="verificationCode" label="Verification Code" type="tel" value={verificationCode} maxLength={6} onChange={(value) => updateFormField('verificationCode', value)} />
+                <ActionButton loading={loading}>Verify</ActionButton>
+            </form>
+        )}
+
+        {view === 'FORGOT_PIN_RESET' && (
+             <form onSubmit={handleResetPin}>
+                <FormInput id="pin" label="New PIN (8 digits)" type="password" value={pin} maxLength={8} onChange={(value) => updateFormField('pin', value)} />
+                <FormInput id="confirmPin" label="Confirm New PIN" type="password" value={confirmPin} maxLength={8} onChange={(value) => updateFormField('confirmPin', value)} />
+                <ActionButton loading={loading}>Reset PIN</ActionButton>
+            </form>
+        )}
+      </div>
+
+      <div className="mt-6 text-sm">
+        {view === 'LOGIN' && (
+            <div className="flex justify-between w-64">
+                <button onClick={() => changeView('REGISTER')} className="text-brand-secondary-text hover:text-brand-primary">Register</button>
+                <button onClick={() => changeView('FORGOT_PIN_NAME')} className="text-brand-secondary-text hover:text-brand-primary">Forgot PIN?</button>
+            </div>
+        )}
+        {view === 'REGISTER' && (
+             <button onClick={() => changeView('LOGIN')} className="text-brand-secondary-text hover:text-brand-primary">Already have an account? Login</button>
+        )}
+        {(view === 'FORGOT_PIN_NAME' || view === 'FORGOT_PIN_CODE' || view === 'FORGOT_PIN_RESET') && (
+            <button onClick={() => changeView('LOGIN')} className="text-brand-secondary-text hover:text-brand-primary">&larr; Back to Login</button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default LoginScreen;

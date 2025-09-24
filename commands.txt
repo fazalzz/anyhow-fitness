@@ -1,0 +1,67 @@
+# Commands to Test Website After Changes
+
+# Build the frontend
+npm run build
+
+# Manual Testing Steps
+
+# 1. Start the application
+# Option A: Start both frontend and backend together
+npm run dev
+
+# Option B: Start frontend and backend separately
+npm run dev:frontend  # Starts Vite dev server
+npm run dev:backend   # Starts backend server
+
+# 2. Access the application
+# Frontend: http://localhost:5173
+# Backend API: http://localhost:4000/api
+
+# 3. Test the API is running:
+curl http://localhost:4000/api/health
+
+# 4. Test Key Features
+# - Login/Register: Try creating a new account
+# - Workouts: Create and track a workout session
+# - Social: Post updates and connect with friends
+# - Progress: Check progress charts and stats
+# - Settings: Update user preferences
+
+# 4. API Testing with cURL
+# Test Authentication
+curl -X POST http://localhost:4000/api/auth/login -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"password123"}'
+
+# Test Profile
+curl http://localhost:4000/api/users/me -H "Authorization: Bearer YOUR_TOKEN_HERE"
+
+# Test Workouts
+curl http://localhost:4000/api/workouts -H "Authorization: Bearer YOUR_TOKEN_HERE"
+
+# Start the backend in development mode (includes hot reloading)
+npm run dev
+
+# Or start the backend in production mode using PM2
+npm run pm2:start
+
+# Run database migrations (if you've made schema changes)
+cd migrations
+ts-node runMigrations.ts
+cd ..
+
+# Start production server with PM2 (if deploying)
+pm2 start ecosystem.config.js
+
+# Useful PM2 commands:
+# View logs:
+pm2 logs
+
+# Monitor processes:
+pm2 monit
+
+# Stop all processes:
+pm2 stop all
+
+# Restart all processes:
+pm2 restart all
+
+Note: Run these commands from the project root directory (C:\Users\fazal\Desktop\Faye) unless specified otherwise.

@@ -1,0 +1,124 @@
+import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+// Load environment variables explicitly so compiled code (src/dist/src/index.js) can locate the root .env
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+// Resolve .env at project root regardless of CWD when running compiled output
+(() => {
+  const candidates = [
+    // When running compiled file at src/dist/src/index.js
+    path.resolve(__dirname, '../../../.env'),
+    // When running ts directly
+    path.resolve(__dirname, '../.env'),
+    // Fallback to current working directory
+    path.resolve(process.cwd(), '.env')
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      dotenv.config({ path: p });
+      break;
+    }
+  }
+})();
+import authRoutes from './routes/auth';
+import userRoutes from './routes/users';
+import workoutRoutes from './routes/workouts';
+import postRoutes from './routes/posts';
+import bodyWeightRoutes from './routes/bodyweight';
+import friendshipRoutes from './routes/friendships';
+import gymRoutes from './routes/gyms';
+
+const app = express();
+const PORT = process.env.PORT || 4000; // Always use 4000
+
+// Middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:4173',
+    'http://localhost:4174'
+  ],
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/workouts', workoutRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/bodyweight', bodyWeightRoutes);
+app.use('/api/friendships', friendshipRoutes);
+app.use('/api/gyms', gymRoutes);
+
+// Root endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.json({ 
+    message: 'Anyhow Fitness API Server',
+    endpoints: {
+      auth: '/api/auth/login or /api/auth/register',
+      health: '/api/health'
+    }
+  });
+});
+
+// Health check endpoint
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({ status: 'OK', message: 'Server is running' });
+});
+
+// Error handling middleware
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
+});
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// Check required environment variables
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars.join(', '));
+  process.exit(1);
+}
+
+// Start server
+const server = app.listen(PORT, () => {
+  console.log('=================================');
+  console.log(`Server running on port ${PORT}`);
+  console.log('Available endpoints:');
+  console.log('- GET  /');
+  console.log('- GET  /api/health');
+  console.log('- POST /api/auth/register');
+  console.log('- POST /api/auth/login');
+  console.log('=================================');
+});
+
+// Handle server errors
+server.on('error', (error: any) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+  } else {
+    console.error('Server error:', error);
+  }
+  process.exit(1);
+});
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (reason: any) => {
+  console.error('Unhandled Rejection:', reason);
+  // Don't exit here, just log it
+});
