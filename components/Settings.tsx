@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Logo from './Logo';
+import { BackButton } from './common';
 
-const AccountSettings: React.FC = () => {
+const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { currentUser, updateUser, changePin, loading } = useAuth();
     const [newName, setNewName] = useState(currentUser?.name || '');
     const [newPhoneNumber, setNewPhoneNumber] = useState(currentUser?.phoneNumber || '');
@@ -106,7 +107,7 @@ const AccountSettings: React.FC = () => {
     );
 }
 
-const Profile: React.FC = () => {
+const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { currentUser, updateUser, loading } = useAuth();
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -147,9 +148,13 @@ const Profile: React.FC = () => {
 
     return (
         <div>
-            <div className="flex items-center justify-center mb-6">
-                <Logo size="medium" className="mr-3" />
-                <h2 className="text-2xl font-bold">Profile & Settings</h2>
+            <div className="flex items-center justify-between mb-6">
+                <BackButton onClick={onBack} />
+                <div className="flex items-center">
+                    <Logo size="medium" className="mr-3" />
+                    <h2 className="text-2xl font-bold">Profile & Settings</h2>
+                </div>
+                <div></div> {/* Spacer for centering */}
             </div>
             
             <div className="bg-brand-surface p-4 rounded-lg mb-6">
@@ -178,7 +183,7 @@ const Profile: React.FC = () => {
                 </div>
             </div>
 
-            <AccountSettings />
+            <AccountSettings onBack={onBack} />
 
             <div className="bg-brand-surface p-4 rounded-lg mb-6">
                 <h3 className="text-lg font-semibold mb-2">Privacy</h3>

@@ -22,16 +22,20 @@ const Dashboard: React.FC = () => {
     setActiveView('FEED');
   };
 
+  const goBack = () => {
+    setActiveView('FEED');
+  };
+
   const renderView = () => {
     switch (activeView) {
       case 'NEW_WORKOUT':
-        return <NewWorkout onFinishWorkout={finishWorkout} />;
+        return <NewWorkout onFinishWorkout={finishWorkout} onBack={goBack} />;
       case 'STATS':
-        return <Stats />;
+        return <Stats onBack={goBack} />;
       case 'FEED':
         return <SocialFeed onStartWorkout={startWorkout} />;
       case 'SETTINGS':
-        return <Profile />;
+        return <Profile onBack={goBack} />;
       default:
         return <SocialFeed onStartWorkout={startWorkout} />;
     }

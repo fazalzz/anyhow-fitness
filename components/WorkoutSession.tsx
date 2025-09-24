@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWorkout } from '../context/WorkoutContext';
 import { PlaceholderIcon } from './icons';
 import PostWorkoutModal from './PostWorkoutModal';
+import { BackButton } from './common';
 // @ts-ignore
 import { api } from '../src/apiClient';
 
@@ -263,7 +264,10 @@ interface GymBranch {
     address?: string;
 }
 
-const NewWorkout: React.FC<{ onFinishWorkout: () => void; }> = ({ onFinishWorkout }) => {
+const NewWorkout: React.FC<{ 
+    onFinishWorkout: () => void; 
+    onBack: () => void;
+}> = ({ onFinishWorkout, onBack }) => {
     const { currentUser } = useAuth();
     const [gymBranches, setGymBranches] = useState<GymBranch[]>([]);
     const [selectedGymBranch, setSelectedGymBranch] = useState<string>('');
@@ -439,7 +443,11 @@ const NewWorkout: React.FC<{ onFinishWorkout: () => void; }> = ({ onFinishWorkou
             {isPostModalOpen && finishedWorkoutId && <PostWorkoutModal onClose={closePostModal} workoutId={finishedWorkoutId} />}
             {showAddGymModal && <AddGymModal onClose={() => setShowAddGymModal(false)} onGymAdded={handleGymAdded} />}
             
-            <h2 className="text-2xl font-bold mb-4">New Workout</h2>
+            <div className="flex items-center justify-between mb-4">
+                <BackButton onClick={onBack} />
+                <h2 className="text-2xl font-bold">New Workout</h2>
+                <div></div> {/* Spacer for centering */}
+            </div>
             
             <div className="mb-4">
                 <label className="block mb-2 text-sm font-semibold">Gym</label>

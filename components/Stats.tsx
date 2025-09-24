@@ -6,6 +6,7 @@ import { useWorkout } from '../context/WorkoutContext';
 import { useAuth } from '../context/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { BodyWeightEntry, Exercise, Workout } from '../types';
+import { BackButton } from './common';
 
 type StatsView = 'BODY' | 'STRENGTH' | 'HISTORY';
 
@@ -624,7 +625,7 @@ const StrengthStats: React.FC = () => {
     );
 }
 
-const Stats: React.FC = () => {
+const Stats: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [activeView, setActiveView] = useState<StatsView>('STRENGTH');
     const { loading } = useWorkout();
 
@@ -642,7 +643,11 @@ const Stats: React.FC = () => {
 
     return (
         <div>
-            <h2 className="text-2xl font-bold mb-4">Your Progress</h2>
+            <div className="flex items-center justify-between mb-4">
+                <BackButton onClick={onBack} />
+                <h2 className="text-2xl font-bold">Your Progress</h2>
+                <div></div> {/* Spacer for centering */}
+            </div>
             
             <div className="flex border-b border-brand-border mb-4">
                 <button 
