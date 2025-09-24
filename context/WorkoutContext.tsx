@@ -9,6 +9,8 @@ interface WorkoutContextType {
   bodyWeightEntries: BodyWeightEntry[];
   loading: boolean;
   addWorkout: (workout: Workout) => Promise<void>;
+  updateWorkout: (workoutId: string, workout: Workout) => Promise<void>;
+  deleteWorkout: (workoutId: string) => Promise<void>;
   getWorkoutsByUserId: (userId: string) => Workout[];
   addPost: (post: Post) => Promise<void>;
   getHighestWeight: (userId: string, exerciseId: string, variation: 'Bilateral' | 'Unilateral') => number;
@@ -66,6 +68,31 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     } catch (error) {
       console.error('Error adding workout:', error);
+    }
+  };
+
+  const updateWorkout = async (workoutId: string, workout: Workout) => {
+    try {
+      const result = await api.apiUpdateWorkout(workoutId, workout);
+      if (result.success && result.data) {
+        const updatedWorkout: Workout = result.data;
+        setWorkouts(prev => prev.map(w => w.id === workoutId ? updatedWorkout : w));
+      }
+    } catch (error) {
+      console.error('Error updating workout:', error);
+      throw error;
+    }
+  };
+
+  const deleteWorkout = async (workoutId: string) => {
+    try {
+      const result = await api.apiDeleteWorkout(workoutId);
+      if (result.success) {
+        setWorkouts(prev => prev.filter(w => w.id !== workoutId));
+      }
+    } catch (error) {
+      console.error('Error deleting workout:', error);
+      throw error;
     }
   };
 
@@ -148,6 +175,8 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
         bodyWeightEntries, 
         loading, 
         addWorkout, 
+        updateWorkout,
+        deleteWorkout,
         getWorkoutsByUserId, 
         addPost, 
         getHighestWeight, 

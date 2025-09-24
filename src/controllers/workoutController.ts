@@ -178,3 +178,141 @@ export const createWorkout = async (req: AuthRequest, res: Response) => {
     client.release();
   }
 };
+
+export const updateWorkout = async (req: AuthRequest, res: Response) => {
+  const client = await db.getClient();
+  
+  try {
+    await client.query('BEGIN');
+    const userId = req.user.id;
+    const workoutId = req.params.workoutId;
+    const { date, branch, exercises }: { date: string; branch: string; exercises: RequestExercise[] } = req.body;
+
+    // Check if workout belongs to user
+    const workoutCheck = await client.query(
+      'SELECT id FROM workouts WHERE id = $1 AND user_id = $2',
+      [workoutId, userId]
+    );
+
+    if (workoutCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Workout not found or access denied' });
+    }
+
+    // Update workout basic info
+    await client.query(
+      'UPDATE workouts SET date = $1, branch = $2 WHERE id = $3',
+      [date, branch, workoutId]
+    );
+
+    // Delete existing exercises and sets
+    await client.query(
+      'DELETE FROM exercise_sets WHERE logged_exercise_id IN (SELECT id FROM logged_exercises WHERE workout_id = $1)',
+      [workoutId]
+    );
+    await client.query(
+      'DELETE FROM logged_exercises WHERE workout_id = $1',
+      [workoutId]
+    );
+
+    // Insert new exercises and sets
+    for (const exercise of exercises) {
+      const exerciseResult = await client.query(
+        `INSERT INTO logged_exercises (workout_id, exercise_id, variation, brand) 
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [workoutId, exercise.exerciseId, exercise.variation, exercise.brand]
+      );
+      const loggedExercise = exerciseResult.rows[0];
+
+      for (const set of exercise.sets) {
+        await client.query(
+          `INSERT INTO exercise_sets (logged_exercise_id, weight, reps, pin_weight, is_pr) 
+           VALUES ($1, $2, $3, $4, $5)`,
+          [loggedExercise.id, set.weight, set.reps, set.pinWeight, set.isPR]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    
+    // Return updated workout
+    const transformedWorkout = {
+      id: workoutId,
+      userId: userId,
+      date: date,
+      branch: branch,
+      exercises: exercises.map((exercise: RequestExercise) => ({
+        id: `${Date.now()}-${Math.random()}`,
+        exerciseId: exercise.exerciseId,
+        variation: exercise.variation,
+        brand: exercise.brand,
+        sets: exercise.sets.map((set: RequestSet) => ({
+          id: `${Date.now()}-${Math.random()}`,
+          weight: set.weight,
+          reps: set.reps,
+          pinWeight: set.pinWeight,
+          isPR: set.isPR
+        }))
+      }))
+    };
+    
+    res.json(transformedWorkout);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Update workout error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};
+
+export const deleteWorkout = async (req: AuthRequest, res: Response) => {
+  const client = await db.getClient();
+  
+  try {
+    await client.query('BEGIN');
+    const userId = req.user.id;
+    const workoutId = req.params.workoutId;
+
+    // Check if workout belongs to user
+    const workoutCheck = await client.query(
+      'SELECT id FROM workouts WHERE id = $1 AND user_id = $2',
+      [workoutId, userId]
+    );
+
+    if (workoutCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Workout not found or access denied' });
+    }
+
+    // Delete workout sets first (foreign key constraint)
+    await client.query(
+      'DELETE FROM exercise_sets WHERE logged_exercise_id IN (SELECT id FROM logged_exercises WHERE workout_id = $1)',
+      [workoutId]
+    );
+
+    // Delete logged exercises
+    await client.query(
+      'DELETE FROM logged_exercises WHERE workout_id = $1',
+      [workoutId]
+    );
+
+    // Delete workout
+    await client.query(
+      'DELETE FROM workouts WHERE id = $1',
+      [workoutId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ 
+      message: 'Workout deleted successfully',
+      workoutId: workoutId
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete workout error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};

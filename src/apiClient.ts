@@ -281,6 +281,20 @@ export const apiAddWorkout = async (workout: Workout): Promise<ApiResponse<Worko
   );
 };
 
+export const apiUpdateWorkout = async (workoutId: string, workout: Workout): Promise<ApiResponse<Workout>> => {
+  return apiRequest<Workout>(
+    `/workouts/${workoutId}`,
+    createRequestOptions('PUT', workout)
+  );
+};
+
+export const apiDeleteWorkout = async (workoutId: string): Promise<ApiResponse<{ message: string; workoutId: string }>> => {
+  return apiRequest<{ message: string; workoutId: string }>(
+    `/workouts/${workoutId}`,
+    createRequestOptions('DELETE')
+  );
+};
+
 // POSTS ENDPOINTS
 export const apiFetchPosts = async (): Promise<ApiResponse<Post[]>> => {
   return apiRequest<Post[]>(

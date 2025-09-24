@@ -1,5 +1,5 @@
 import express from 'express';
-import { getUserWorkouts, createWorkout } from '../controllers/workoutController';
+import { getUserWorkouts, createWorkout, updateWorkout, deleteWorkout } from '../controllers/workoutController';
 import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
@@ -13,5 +13,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 router.get('/user/:userId', authenticateToken, getUserWorkouts);
 router.post('/', authenticateToken, createWorkout);
+router.put('/:workoutId', authenticateToken, updateWorkout);
+router.delete('/:workoutId', authenticateToken, deleteWorkout);
 
 export default router;

@@ -9,19 +9,249 @@ import { BodyWeightEntry, Exercise, Workout } from '../types';
 
 type StatsView = 'BODY' | 'STRENGTH' | 'HISTORY';
 
-const WorkoutHistoryItem: React.FC<{ workout: Workout }> = ({ workout }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+const EditWorkoutModal: React.FC<{
+    workout: Workout;
+    onSave: (workout: Workout) => void;
+    onCancel: () => void;
+}> = ({ workout, onSave, onCancel }) => {
+    const [editedWorkout, setEditedWorkout] = useState<Workout>({ ...workout });
+
+    const handleSave = () => {
+        onSave(editedWorkout);
+    };
+
+    const handleExerciseChange = (exerciseIndex: number, field: string, value: any) => {
+        setEditedWorkout(prev => ({
+            ...prev,
+            exercises: prev.exercises.map((ex, index) => 
+                index === exerciseIndex ? { ...ex, [field]: value } : ex
+            )
+        }));
+    };
+
+    const handleSetChange = (exerciseIndex: number, setIndex: number, field: string, value: any) => {
+        setEditedWorkout(prev => ({
+            ...prev,
+            exercises: prev.exercises.map((ex, exIndex) => 
+                exIndex === exerciseIndex 
+                    ? {
+                        ...ex,
+                        sets: ex.sets.map((set, sIndex) => 
+                            sIndex === setIndex ? { ...set, [field]: value } : set
+                        )
+                    }
+                    : ex
+            )
+        }));
+    };
+
+    const addSet = (exerciseIndex: number) => {
+        const lastSet = editedWorkout.exercises[exerciseIndex].sets.slice(-1)[0];
+        const newSet = {
+            id: `new-${Date.now()}-${Math.random()}`,
+            weight: lastSet?.weight || 0,
+            reps: lastSet?.reps || 0,
+            pinWeight: lastSet?.pinWeight,
+            isPR: false
+        };
+
+        setEditedWorkout(prev => ({
+            ...prev,
+            exercises: prev.exercises.map((ex, index) => 
+                index === exerciseIndex 
+                    ? { ...ex, sets: [...ex.sets, newSet] }
+                    : ex
+            )
+        }));
+    };
+
+    const removeSet = (exerciseIndex: number, setIndex: number) => {
+        setEditedWorkout(prev => ({
+            ...prev,
+            exercises: prev.exercises.map((ex, index) => 
+                index === exerciseIndex 
+                    ? { ...ex, sets: ex.sets.filter((_, sIndex) => sIndex !== setIndex) }
+                    : ex
+            )
+        }));
+    };
+
     const findExerciseName = (id: string) => EXERCISES.find(e => e.id === id)?.name || 'Unknown Exercise';
 
     return (
-        <div className="bg-brand-surface rounded-lg overflow-hidden">
-            <button onClick={() => setIsExpanded(!isExpanded)} className="w-full text-left p-4 flex justify-between items-center">
-                <div>
-                    <p className="font-semibold">{new Date(workout.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                    <p className="text-sm text-brand-secondary-text">{workout.branch}</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-brand-bg rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-brand-border">
+                    <h2 className="text-xl font-bold">Edit Workout</h2>
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium mb-2">Date</label>
+                        <input
+                            type="date"
+                            value={editedWorkout.date}
+                            onChange={(e) => setEditedWorkout(prev => ({ ...prev, date: e.target.value }))}
+                            className="w-full p-2 border border-brand-border rounded-lg bg-brand-surface"
+                        />
+                    </div>
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium mb-2">Branch</label>
+                        <input
+                            type="text"
+                            value={editedWorkout.branch}
+                            onChange={(e) => setEditedWorkout(prev => ({ ...prev, branch: e.target.value }))}
+                            className="w-full p-2 border border-brand-border rounded-lg bg-brand-surface"
+                        />
+                    </div>
                 </div>
-                <span className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>&#9660;</span>
-            </button>
+
+                <div className="p-6 space-y-6">
+                    {editedWorkout.exercises.map((exercise, exerciseIndex) => (
+                        <div key={exercise.id} className="border border-brand-border rounded-lg p-4">
+                            <h3 className="font-semibold text-lg mb-4">
+                                {findExerciseName(exercise.exerciseId)} - {exercise.variation} ({exercise.brand})
+                            </h3>
+                            
+                            <div className="space-y-2">
+                                {exercise.sets.map((set, setIndex) => (
+                                    <div key={set.id} className="flex items-center gap-2 p-2 bg-brand-surface rounded">
+                                        <span className="text-sm font-medium w-12">Set {setIndex + 1}</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Weight"
+                                            value={set.weight}
+                                            onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'weight', parseFloat(e.target.value) || 0)}
+                                            className="w-20 p-1 border border-brand-border rounded text-center"
+                                        />
+                                        <span className="text-sm">kg</span>
+                                        {set.pinWeight !== undefined && (
+                                            <>
+                                                <span className="text-sm">+</span>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Pin"
+                                                    value={set.pinWeight || ''}
+                                                    onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'pinWeight', parseFloat(e.target.value) || undefined)}
+                                                    className="w-16 p-1 border border-brand-border rounded text-center"
+                                                />
+                                                <span className="text-sm">kg</span>
+                                            </>
+                                        )}
+                                        <span className="text-sm">×</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Reps"
+                                            value={set.reps}
+                                            onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'reps', parseInt(e.target.value) || 0)}
+                                            className="w-16 p-1 border border-brand-border rounded text-center"
+                                        />
+                                        <span className="text-sm">reps</span>
+                                        <label className="flex items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={set.isPR}
+                                                onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'isPR', e.target.checked)}
+                                            />
+                                            <span className="text-sm">PR</span>
+                                        </label>
+                                        {exercise.sets.length > 1 && (
+                                            <button
+                                                onClick={() => removeSet(exerciseIndex, setIndex)}
+                                                className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded"
+                                            >
+                                                🗑️
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                <button
+                                    onClick={() => addSet(exerciseIndex)}
+                                    className="w-full p-2 border-2 border-dashed border-brand-border rounded-lg text-brand-secondary-text hover:bg-brand-surface transition-colors"
+                                >
+                                    + Add Set
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="p-6 border-t border-brand-border flex gap-4">
+                    <button
+                        onClick={onCancel}
+                        className="flex-1 p-3 border border-brand-border rounded-lg hover:bg-brand-surface transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        className="flex-1 p-3 bg-brand-primary text-brand-primary-text rounded-lg hover:bg-brand-secondary transition-colors"
+                    >
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const WorkoutHistoryItem: React.FC<{ workout: Workout; onEdit: (workout: Workout) => void; onDelete: (workoutId: string) => void }> = ({ workout, onEdit, onDelete }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const findExerciseName = (id: string) => EXERCISES.find(e => e.id === id)?.name || 'Unknown Exercise';
+
+    const handleDelete = () => {
+        onDelete(workout.id);
+        setShowDeleteConfirm(false);
+    };
+
+    return (
+        <div className="bg-brand-surface rounded-lg overflow-hidden">
+            <div className="flex items-center">
+                <button onClick={() => setIsExpanded(!isExpanded)} className="flex-1 text-left p-4 flex justify-between items-center">
+                    <div>
+                        <p className="font-semibold">{new Date(workout.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        <p className="text-sm text-brand-secondary-text">{workout.branch}</p>
+                    </div>
+                    <span className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>&#9660;</span>
+                </button>
+                <div className="flex gap-2 pr-4">
+                    <button
+                        onClick={() => onEdit(workout)}
+                        className="p-2 text-brand-secondary-text hover:text-brand-primary hover:bg-brand-surface-alt rounded-lg transition-colors"
+                        title="Edit workout"
+                    >
+                        ✏️
+                    </button>
+                    <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="p-2 text-brand-secondary-text hover:text-red-500 hover:bg-brand-surface-alt rounded-lg transition-colors"
+                        title="Delete workout"
+                    >
+                        🗑️
+                    </button>
+                </div>
+            </div>
+            
+            {showDeleteConfirm && (
+                <div className="px-4 pb-4 border-t border-brand-border bg-red-50">
+                    <div className="flex items-center justify-between py-3">
+                        <span className="text-sm font-medium text-red-800">Delete this workout?</span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isExpanded && (
                 <div className="p-4 border-t border-brand-border">
                     {workout.exercises.map(ex => (
@@ -52,11 +282,35 @@ const WorkoutHistoryItem: React.FC<{ workout: Workout }> = ({ workout }) => {
 
 const WorkoutHistory: React.FC = () => {
     const { currentUser } = useAuth();
-    const { getWorkoutsByUserId } = useWorkout();
+    const { getWorkoutsByUserId, updateWorkout, deleteWorkout } = useWorkout();
+    const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
 
     if (!currentUser) return null;
     
     const userWorkouts = getWorkoutsByUserId(currentUser.id);
+
+    const handleEdit = (workout: Workout) => {
+        setEditingWorkout(workout);
+    };
+
+    const handleDelete = async (workoutId: string) => {
+        try {
+            await deleteWorkout(workoutId);
+        } catch (error) {
+            console.error('Failed to delete workout:', error);
+            alert('Failed to delete workout. Please try again.');
+        }
+    };
+
+    const handleUpdateWorkout = async (updatedWorkout: Workout) => {
+        try {
+            await updateWorkout(editingWorkout!.id, updatedWorkout);
+            setEditingWorkout(null);
+        } catch (error) {
+            console.error('Failed to update workout:', error);
+            alert('Failed to update workout. Please try again.');
+        }
+    };
 
     return (
         <div>
@@ -64,15 +318,29 @@ const WorkoutHistory: React.FC = () => {
             {userWorkouts.length > 0 ? (
                 <div className="space-y-4">
                     {userWorkouts.map(workout => (
-                        <WorkoutHistoryItem key={workout.id} workout={workout} />
+                        <WorkoutHistoryItem 
+                            key={workout.id} 
+                            workout={workout} 
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
                     ))}
                 </div>
             ) : (
                 <p className="text-brand-secondary-text text-center">No workouts logged yet.</p>
             )}
+
+            {/* Edit Workout Modal */}
+            {editingWorkout && (
+                <EditWorkoutModal
+                    workout={editingWorkout}
+                    onSave={handleUpdateWorkout}
+                    onCancel={() => setEditingWorkout(null)}
+                />
+            )}
         </div>
-    )
-}
+    );
+};
 
 const WorkoutHistoryTable: React.FC<{
     exerciseId: string;
