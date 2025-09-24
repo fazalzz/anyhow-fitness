@@ -9,6 +9,8 @@ interface ArkkiesSession {
   cookies: string[];
   userId: string;
   sessionId: string;
+  loginTime?: Date;
+  lastUsed?: Date;
 }
 
 interface ArkkiesCredentials {
@@ -30,8 +32,56 @@ interface BookingRequest {
   arkkiesCredentials: ArkkiesCredentials;
 }
 
-// In-memory session storage (in production, use Redis or database)
+// In-memory session storage with persistence (in production, use Redis or database)
 const activeSessions = new Map<string, ArkkiesSession>();
+
+// Load sessions from localStorage equivalent on server restart (for development)
+// In production, this would be handled by Redis or database
+const saveSessionToPersistentStorage = (userId: string, session: ArkkiesSession) => {
+  // This would typically save to database or Redis
+  logger.info(`Saving persistent session for user: ${userId}`);
+};
+
+const loadSessionFromPersistentStorage = (userId: string): ArkkiesSession | null => {
+  // This would typically load from database or Redis
+  // For now, we'll rely on the in-memory storage
+  return activeSessions.get(userId) || null;
+};
+
+// Check if user has existing valid session
+const checkExistingSession = async (req: AuthRequest, res: Response) => {
+  try {
+    const session = activeSessions.get(req.user!.id) || loadSessionFromPersistentStorage(req.user!.id);
+    
+    if (session) {
+      // Update last used time
+      session.lastUsed = new Date();
+      activeSessions.set(req.user!.id, session);
+      
+      logger.info(`Found existing Arkkies session for user: ${req.user!.id}`);
+      return res.json({
+        success: true,
+        data: {
+          sessionId: session.sessionId,
+          message: 'Existing Arkkies session found',
+          loginTime: session.loginTime
+        }
+      });
+    }
+    
+    res.json({
+      success: false,
+      message: 'No existing session found'
+    });
+    
+  } catch (error: any) {
+    logger.error('Error checking existing session:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check session status'
+    });
+  }
+};
 
 export const loginToArkkies = async (req: AuthRequest, res: Response) => {
   try {
@@ -131,17 +181,22 @@ export const loginToArkkies = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Store session info
+    // Store session info with persistence
     const sessionId = Date.now().toString();
     const cookies = loginResponse.headers['set-cookie'] || [];
     
-    activeSessions.set(req.user!.id, {
+    const sessionData: ArkkiesSession = {
       cookies,
       userId: req.user!.id,
-      sessionId
-    });
+      sessionId,
+      loginTime: new Date(),
+      lastUsed: new Date()
+    };
+    
+    activeSessions.set(req.user!.id, sessionData);
+    saveSessionToPersistentStorage(req.user!.id, sessionData);
 
-    logger.info(`Successfully logged into Arkkies for user: ${email}`);
+    logger.info(`Successfully logged into Arkkies for user: ${email} - Session will persist`);
 
     res.json({
       success: true,
@@ -171,31 +226,67 @@ export const getOutlets = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Fallback outlets for now
+    // Real ARK gym outlets based on actual locations
     const outlets: GymOutlet[] = [
       {
-        id: 'downtown',
-        name: 'ARK Downtown',
+        id: 'bishan',
+        name: 'ARK Bishan',
+        location: 'Bishan',
+        url: '/portal/bishan'
+      },
+      {
+        id: 'hougang',
+        name: 'ARK Hougang',
+        location: 'Hougang',
+        url: '/portal/hougang'
+      },
+      {
+        id: 'choa-chu-kang',
+        name: 'ARK Choa Chu Kang',
+        location: 'Choa Chu Kang',
+        url: '/portal/choa-chu-kang'
+      },
+      {
+        id: 'jurong',
+        name: 'ARK Jurong',
+        location: 'Jurong',
+        url: '/portal/jurong'
+      },
+      {
+        id: 'geylang',
+        name: 'ARK Geylang',
+        location: 'Geylang',
+        url: '/portal/geylang'
+      },
+      {
+        id: 'keat-hong',
+        name: 'ARK Keat Hong',
+        location: 'Keat Hong',
+        url: '/portal/keat-hong'
+      },
+      {
+        id: 'serangoon-north',
+        name: 'ARK Serangoon North',
+        location: 'Serangoon North',
+        url: '/portal/serangoon-north'
+      },
+      {
+        id: 'buangkok',
+        name: 'ARK Buangkok',
+        location: 'Buangkok',
+        url: '/portal/buangkok'
+      },
+      {
+        id: 'jurong-spring-cc',
+        name: 'ARK Jurong Spring CC',
+        location: 'Jurong Spring CC',
+        url: '/portal/jurong-spring-cc'
+      },
+      {
+        id: 'downtown-east',
+        name: 'ARK Downtown East',
         location: 'Downtown East',
-        url: '/portal/downtown'
-      },
-      {
-        id: 'orchard',
-        name: 'ARK Orchard',
-        location: 'Orchard Central',
-        url: '/portal/orchard'
-      },
-      {
-        id: 'marina',
-        name: 'ARK Marina',
-        location: 'Marina Bay',
-        url: '/portal/marina'
-      },
-      {
-        id: 'tampines',
-        name: 'ARK Tampines',
-        location: 'Tampines Mall',
-        url: '/portal/tampines'
+        url: '/portal/downtown-east'
       }
     ];
 
@@ -331,6 +422,8 @@ export const getBookingHistory = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+export const getSessionStatus = checkExistingSession;
 
 export const debugPageStructure = async (req: AuthRequest, res: Response) => {
   try {

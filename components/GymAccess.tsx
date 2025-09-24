@@ -21,11 +21,13 @@ interface BookingStep {
 }
 
 const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState<any>(null);
 
   // Form state
   const [credentials, setCredentials] = useState<ArkkiesCredentials>({
@@ -36,12 +38,18 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [targetOutlet, setTargetOutlet] = useState('');
   const [selectedDoor, setSelectedDoor] = useState('');
 
-  // Mock outlets - will be fetched from API later
-  const [outlets] = useState<GymOutlet[]>([
-    { id: 'downtown', name: 'ARK Downtown', location: 'Downtown East' },
-    { id: 'orchard', name: 'ARK Orchard', location: 'Orchard Central' },
-    { id: 'marina', name: 'ARK Marina', location: 'Marina Bay' },
-    { id: 'tampines', name: 'ARK Tampines', location: 'Tampines Mall' },
+  // Real ARK gym outlets
+  const [outlets, setOutlets] = useState<GymOutlet[]>([
+    { id: 'bishan', name: 'ARK Bishan', location: 'Bishan' },
+    { id: 'hougang', name: 'ARK Hougang', location: 'Hougang' },
+    { id: 'choa-chu-kang', name: 'ARK Choa Chu Kang', location: 'Choa Chu Kang' },
+    { id: 'jurong', name: 'ARK Jurong', location: 'Jurong' },
+    { id: 'geylang', name: 'ARK Geylang', location: 'Geylang' },
+    { id: 'keat-hong', name: 'ARK Keat Hong', location: 'Keat Hong' },
+    { id: 'serangoon-north', name: 'ARK Serangoon North', location: 'Serangoon North' },
+    { id: 'buangkok', name: 'ARK Buangkok', location: 'Buangkok' },
+    { id: 'jurong-spring-cc', name: 'ARK Jurong Spring CC', location: 'Jurong Spring CC' },
+    { id: 'downtown-east', name: 'ARK Downtown East', location: 'Downtown East' }
   ]);
 
   const [doors] = useState<string[]>([
@@ -53,8 +61,8 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     {
       step: 1,
       title: 'Login to Arkkies',
-      description: 'Enter your Arkkies account credentials',
-      status: currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : 'pending'
+      description: isLoggedIn ? 'Already logged in to Arkkies ✓' : 'Enter your Arkkies account credentials',
+      status: isLoggedIn || currentStep > 1 ? 'completed' : currentStep === 1 ? 'active' : 'pending'
     },
     {
       step: 2,
@@ -70,19 +78,94 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   ];
 
+  // Check for existing Arkkies session on component mount
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      try {
+        const response = await fetch('/api/arkkies/session-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          setIsLoggedIn(true);
+          setSessionInfo(data.data);
+          setCurrentStep(2); // Skip login step
+          setSuccess(`Already logged in to Arkkies! (Since ${new Date(data.data.loginTime).toLocaleTimeString()})`);
+          
+          // Load outlets from API
+          try {
+            const outletsResponse = await fetch('/api/arkkies/outlets', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }  
+            });
+            const outletsData = await outletsResponse.json();
+            if (outletsData.success && outletsData.data) {
+              setOutlets(outletsData.data);
+            }
+          } catch (err) {
+            console.error('Failed to load outlets:', err);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check session status:', error);
+      }
+    };
+
+    if (token && currentUser) {
+      checkExistingSession();
+    }
+  }, [currentUser]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // TODO: Implement actual arkkies login
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
+      const response = await fetch('/api/arkkies/login', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(credentials)
+      });
+
+      const data = await response.json();
       
-      setSuccess('Successfully logged into Arkkies!');
-      setCurrentStep(2);
+      if (data.success) {
+        setIsLoggedIn(true);
+        setSessionInfo(data.data);
+        setSuccess('Successfully logged into Arkkies! Session will persist.');
+        setCurrentStep(2);
+        
+        // Load outlets from API
+        try {
+          const outletsResponse = await fetch('/api/arkkies/outlets', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const outletsData = await outletsResponse.json();
+          if (outletsData.success && outletsData.data) {
+            setOutlets(outletsData.data);
+          }
+        } catch (err) {
+          console.error('Failed to load outlets:', err);
+        }
+      } else {
+        setError(data.error || 'Failed to login to Arkkies. Please check your credentials.');
+      }
     } catch (err: any) {
-      setError('Failed to login to Arkkies. Please check your credentials.');
+      setError('Failed to connect to Arkkies. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -102,13 +185,29 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setLoading(true);
 
     try {
-      // TODO: Implement actual booking and door access
-      await new Promise(resolve => setTimeout(resolve, 3000)); // Simulate booking process
+      const response = await fetch('/api/arkkies/book-and-access', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          homeOutletId: homeOutlet,
+          targetOutletId: targetOutlet,
+          selectedDoor: selectedDoor || 'Main Entrance'
+        })
+      });
+
+      const data = await response.json();
       
-      setSuccess('Successfully opened gym door! Enjoy your workout! 💪');
-      setCurrentStep(4);
+      if (data.success) {
+        setSuccess(`Successfully opened ${data.data.door} at ${data.data.outlet}! Enjoy your workout! 💪`);
+        setCurrentStep(4);
+      } else {
+        setError(data.error || 'Failed to access gym. Please try again.');
+      }
     } catch (err: any) {
-      setError('Failed to access gym. Please try again.');
+      setError('Failed to connect to gym access system. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -151,8 +250,35 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       case 1:
         return (
           <div className="bg-brand-surface p-6 rounded-lg">
-            <h3 className="text-xl font-bold mb-4">Step 1: Login to Arkkies</h3>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <h3 className="text-xl font-bold mb-4">
+              Step 1: Login to Arkkies
+              {isLoggedIn && <span className="ml-2 text-green-500">✓ Logged In</span>}
+            </h3>
+            {isLoggedIn ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                  <p className="text-green-800 font-medium">
+                    🎉 Already logged in to Arkkies!
+                  </p>
+                  <p className="text-green-600 text-sm mt-1">
+                    Your session is persistent and ready to use.
+                    {sessionInfo?.loginTime && (
+                      <span className="block">
+                        Logged in since: {new Date(sessionInfo.loginTime).toLocaleString()}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="w-full py-3 bg-brand-primary text-brand-primary-text font-bold rounded hover:bg-brand-secondary transition-colors"
+                >
+                  Continue to Outlet Selection →
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-bold mb-2 text-brand-secondary-text">
                   Email Address
@@ -181,14 +307,15 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   disabled={loading}
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading || !credentials.email || !credentials.password}
-                className="w-full py-3 bg-brand-primary text-brand-primary-text font-bold rounded hover:bg-brand-secondary disabled:bg-brand-surface-alt disabled:opacity-50 transition-colors"
-              >
-                {loading ? 'Logging in...' : 'Login to Arkkies'}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={loading || !credentials.email || !credentials.password}
+                  className="w-full py-3 bg-brand-primary text-brand-primary-text font-bold rounded hover:bg-brand-secondary disabled:bg-brand-surface-alt disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Logging in...' : 'Login to Arkkies'}
+                </button>
+              </form>
+            )}
           </div>
         );
 

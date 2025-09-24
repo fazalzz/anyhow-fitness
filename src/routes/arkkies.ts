@@ -7,6 +7,9 @@ const router = Router();
 // All gym access routes require authentication
 router.use(authenticateToken);
 
+// Check existing session status
+router.get('/session-status', arkkiesController.getSessionStatus);
+
 // Login to Arkkies
 router.post('/login', arkkiesController.loginToArkkies);
 
