@@ -5,6 +5,8 @@ import { encrypt, decrypt } from '../utils/encryption';
 import { logger } from '../utils/logger';
 import { AuthRequest } from '../middleware/auth';
 import { createRealArkkiesAPI } from '../utils/realArkkiesAPI';
+import { createEnhancedArkkiesAPI } from '../utils/realArkkiesAPI-enhanced';
+import { createBookingAutomation } from '../utils/arkkiesBookingAutomation';
 
 interface ArkkiesSession {
   cookies: string[];
@@ -401,19 +403,17 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response) => {
     
     const timestamp = new Date().toISOString();
     
-    // 🎯 TRY REAL ARKKIES API FIRST
+    // 🎯 TRY ENHANCED REAL ARKKIES API FIRST
     try {
-      const realAPI = createRealArkkiesAPI(session.cookies || []);
+      const enhancedAPI = createEnhancedArkkiesAPI(session.cookies || []);
       
-      if (realAPI) {
-        logger.info(`🔗 Using REAL Arkkies API integration`);
+      if (enhancedAPI) {
+        logger.info(`� Using ENHANCED Arkkies API integration`);
         
-        // Use your captured booking ID for now - in production this would come from a real booking
-        const realBookingId = '241120a4-deda-4838-a20f-1d558303dd30';
+        // Use dynamic booking discovery - no hardcoded booking ID needed!
+        const realBooking = await enhancedAPI.accessDoor(targetOutletId);
         
-        const realBooking = await realAPI.accessDoor(realBookingId, targetOutletId);
-        
-        logger.info(`🎉 REAL door access successful!`);
+        logger.info(`🎉 ENHANCED door access successful!`);
         
         res.json({
           success: true,
@@ -425,14 +425,59 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response) => {
             timeSlot: new Date().toLocaleTimeString(),
             timestamp,
             accessGranted: true,
-            doorStatus: 'REAL ACCESS GRANTED',
+            doorStatus: 'ENHANCED REAL ACCESS',
+            doorEntryUrl: realBooking.doorEntryUrl,
+            accessCode: realBooking.accessCode,
+            qrCode: realBooking.qrCode,
+            bookingData: realBooking.bookingData,
+            instructions: [
+              '🚪 Click the door entry URL to open the gym door',
+              '📱 Or use the QR code at the gym entrance',
+              '🚀 Using ENHANCED Arkkies API with dynamic booking discovery!',
+              '✅ No hardcoded booking IDs - finds your active bookings automatically'
+            ],
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+          }
+        });
+        return;
+      }
+    } catch (enhancedApiError: any) {
+      logger.warn(`⚠️ Enhanced API failed, trying legacy API: ${enhancedApiError.message}`);
+    }
+
+    // 🔄 FALLBACK TO LEGACY REAL API
+    try {
+      const realAPI = createRealArkkiesAPI(session.cookies || []);
+      
+      if (realAPI) {
+        logger.info(`🔗 Using LEGACY Arkkies API integration`);
+        
+        // Use your captured booking ID for legacy API
+        const realBookingId = '241120a4-deda-4838-a20f-1d558303dd30';
+        
+        const realBooking = await realAPI.accessDoor(realBookingId, targetOutletId);
+        
+        logger.info(`🎉 LEGACY door access successful!`);
+        
+        res.json({
+          success: true,
+          data: {
+            bookingId: realBooking.bookingId,
+            message: `🎉 REAL door access granted for ${targetOutletId}!`,
+            outlet: targetOutletId,
+            door: selectedDoor || 'Main Entrance',
+            timeSlot: new Date().toLocaleTimeString(),
+            timestamp,
+            accessGranted: true,
+            doorStatus: 'LEGACY REAL ACCESS',
             doorEntryUrl: realBooking.doorEntryUrl,
             accessCode: realBooking.accessCode,
             qrCode: realBooking.qrCode,
             instructions: [
               '🚪 Click the door entry URL to open the gym door',
               '📱 Or use the QR code at the gym entrance',
-              '✅ This is using REAL Arkkies API integration!'
+              '⚠️ Using legacy API with hardcoded booking ID',
+              '🔧 Enhanced API unavailable - check session cookies'
             ],
             expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
           }
@@ -440,7 +485,7 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response) => {
         return;
       }
     } catch (realApiError: any) {
-      logger.warn(`⚠️ Real API failed, falling back to simulation: ${realApiError.message}`);
+      logger.warn(`⚠️ Legacy API also failed, falling back to simulation: ${realApiError.message}`);
     }
     
     // 🔄 FALLBACK TO SIMULATION
@@ -564,6 +609,82 @@ export const testRealAPI = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Test enhanced Arkkies API with dynamic booking discovery
+export const testEnhancedAPI = async (req: AuthRequest, res: Response) => {
+  try {
+    const session = activeSessions.get(req.user!.id);
+    
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: 'No active Arkkies session'
+      });
+    }
+
+    const enhancedAPI = createEnhancedArkkiesAPI(session.cookies || []);
+    
+    if (!enhancedAPI) {
+      return res.json({
+        success: false,
+        error: 'No valid Arkkies session data found',
+        availableCookies: session.cookies?.length || 0
+      });
+    }
+
+    logger.info('🚀 Testing enhanced Arkkies API...');
+    
+    const testOutletId = req.body.outletId || 'AGRBGK01'; // Default to outlet from your traffic
+    
+    // Test comprehensive API functionality
+    const [authStatus, userProfile, userBookings] = await Promise.allSettled([
+      enhancedAPI.checkAuthStatus(),
+      enhancedAPI.getUserProfile(),
+      enhancedAPI.getUserBookings(testOutletId)
+    ]);
+
+    // Try to find active booking
+    let activeBooking = null;
+    let doorAccess = null;
+    
+    try {
+      const bookingId = await enhancedAPI.findActiveBooking(testOutletId);
+      if (bookingId) {
+        activeBooking = bookingId;
+        doorAccess = await enhancedAPI.accessDoor(testOutletId);
+      }
+    } catch (bookingError: any) {
+      logger.warn(`Active booking search failed: ${bookingError.message}`);
+    }
+
+    res.json({
+      success: true,
+      message: 'Enhanced Arkkies API test completed!',
+      data: {
+        outletId: testOutletId,
+        authStatus: authStatus.status === 'fulfilled' ? authStatus.value : { error: authStatus.reason?.message },
+        userProfile: userProfile.status === 'fulfilled' ? userProfile.value : { error: userProfile.reason?.message },
+        userBookings: userBookings.status === 'fulfilled' ? userBookings.value : { error: userBookings.reason?.message },
+        activeBooking,
+        doorAccess,
+        capabilities: [
+          'Dynamic booking discovery',
+          'Enhanced cookie management',
+          'Comprehensive API coverage',
+          'Real door entry URL generation'
+        ]
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Enhanced API test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Enhanced API test failed',
+      details: error.message
+    });
+  }
+};
+
 // Debug endpoint to test page structure
 export const debugPageStructure = async (req: AuthRequest, res: Response) => {
   try {
@@ -642,6 +763,103 @@ export const debugPageStructure = async (req: AuthRequest, res: Response) => {
       success: false,
       error: 'Failed to debug page structure',
       details: error.message
+    });
+  }
+};
+
+// COMPLETE AUTOMATION: Book + Unlock Door in one action
+export const automatedBookAndUnlock = async (req: AuthRequest, res: Response) => {
+  try {
+    const { homeOutletId, destinationOutletId }: { homeOutletId: string; destinationOutletId: string } = req.body;
+    const session = activeSessions.get(req.user!.id);
+    
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: 'No active Arkkies session'
+      });
+    }
+
+    if (!homeOutletId || !destinationOutletId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Home outlet and destination outlet are required'
+      });
+    }
+
+    logger.info(`🚀 AUTOMATED BOOKING: ${homeOutletId} → ${destinationOutletId} for user: ${req.user!.id}`);
+
+    // Create booking automation instance
+    const bookingAutomation = createBookingAutomation(session.cookies || []);
+    
+    if (!bookingAutomation) {
+      return res.status(400).json({
+        success: false,
+        error: 'Unable to create booking automation - invalid session cookies'
+      });
+    }
+
+    // Execute complete automated flow
+    const result = await bookingAutomation.bookAndUnlockDoor(homeOutletId, destinationOutletId);
+
+    if (result.success) {
+      logger.info(`🎉 AUTOMATED SUCCESS: Booking ${result.bookingId} created and door ready!`);
+      
+      res.json({
+        success: true,
+        data: {
+          bookingId: result.bookingId,
+          doorEntryUrl: result.doorEntryUrl,
+          message: result.message,
+          homeOutlet: homeOutletId,
+          destinationOutlet: destinationOutletId,
+          automatedSteps: result.steps,
+          timestamp: new Date().toISOString(),
+          instructions: [
+            '🎉 Booking created automatically with your monthly pass!',
+            '📅 Selected today\'s date and current time slot',
+            '🚪 Click the door entry URL to unlock the gym door',
+            '🔓 Remote entry is now activated - door ready to unlock!',
+            '✨ Complete automation - no manual steps needed!'
+          ],
+          flowCompleted: [
+            '✅ Monthly season pass located',
+            '✅ Available time slots checked',
+            '✅ Booking created for today',
+            '✅ Time slot automatically selected',
+            '✅ Remote entry activated',
+            '✅ Door unlock URL generated'
+          ]
+        }
+      });
+    } else {
+      logger.warn(`⚠️ AUTOMATED BOOKING FAILED: ${result.message}`);
+      
+      res.status(400).json({
+        success: false,
+        error: result.message,
+        automatedSteps: result.steps,
+        partialProgress: result.steps.filter(step => step.status === 'completed').length,
+        troubleshooting: [
+          'Check if you have an active monthly season pass',
+          'Verify the destination outlet has available time slots',
+          'Ensure your Arkkies session is still valid',
+          'Try again in a few minutes if the service is busy'
+        ]
+      });
+    }
+
+  } catch (error: any) {
+    logger.error('Automated booking failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Automated booking system error',
+      details: error.message,
+      fallbackOptions: [
+        'Try the manual booking process',
+        'Check your Arkkies session and try logging in again',
+        'Contact support if the issue persists'
+      ]
     });
   }
 };

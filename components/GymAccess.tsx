@@ -243,6 +243,110 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
+  const testEnhancedAPI = async () => {
+    if (!token) return;
+    
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await fetch('/api/arkkies/test-enhanced-api', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          outletId: targetOutlet || 'AGRBGK01' // Use selected outlet or default
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const { doorAccess, activeBooking, userBookings } = data.data;
+        
+        if (doorAccess) {
+          setSuccess(`🚀 Enhanced API test successful! Found active booking: ${activeBooking}. Door access ready!`);
+          console.log('Enhanced API results:', data.data);
+          
+          // If we got door access, show the URL
+          if (doorAccess.doorEntryUrl) {
+            setSuccess(prev => prev + ` Door URL: ${doorAccess.doorEntryUrl}`);
+          }
+        } else if (userBookings && userBookings.bookings && userBookings.bookings.length > 0) {
+          setSuccess(`✅ Enhanced API working! Found ${userBookings.bookings.length} bookings, but no active booking for selected outlet.`);
+        } else {
+          setSuccess('✅ Enhanced API connected successfully, but no active bookings found.');
+        }
+        
+      } else {
+        setError(`❌ Enhanced API test failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      setError('❌ Failed to test enhanced API connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const automatedBookAndUnlock = async () => {
+    if (!homeOutlet || !targetOutlet) {
+      setError('❌ Please select both home and destination outlets first.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      console.log('🚀 Starting automated booking...', { homeOutlet, targetOutlet });
+      
+      const response = await fetch('/api/arkkies/automated-booking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          homeOutlet,
+          destinationOutlet: targetOutlet,
+          sessionCookie: sessionInfo?.sessionCookie || 'mock_session'
+        })
+      });
+
+      const data = await response.json();
+      console.log('Automated booking response:', data);
+      
+      if (data.success) {
+        setSuccess(`🎉 ${data.message}\n\n🚪 Door Entry URL: ${data.doorAccess?.url}\n\n⏰ Auto-opening in 3 seconds...`);
+        
+        // Show booking details
+        console.log('Booking Details:', data.booking);
+        console.log('Door Access:', data.doorAccess);
+        console.log('Automation Steps:', data.automation);
+        
+        // Auto-open door URL after 3 seconds
+        if (data.doorAccess?.url) {
+          setTimeout(() => {
+            console.log('🚪 Opening door access URL:', data.doorAccess.url);
+            window.open(data.doorAccess.url, '_blank');
+          }, 3000);
+        }
+        
+        // Move to success step
+        setCurrentStep(4);
+      } else {
+        setError(`❌ Automated booking failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      setError('❌ Failed to execute automated booking and unlock.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const resetProcess = () => {
     setCurrentStep(1);
     setCredentials({ email: '', password: '' });
@@ -313,6 +417,13 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     className="w-full py-2 bg-blue-500 text-white font-bold rounded hover:bg-blue-600 transition-colors text-sm"
                   >
                     🧪 Test Real API Integration
+                  </button>
+                  <button
+                    type="button"
+                    onClick={testEnhancedAPI}
+                    className="w-full py-2 bg-purple-500 text-white font-bold rounded hover:bg-purple-600 transition-colors text-sm"
+                  >
+                    🚀 Test Enhanced API (Dynamic Booking)
                   </button>
                 </div>
               </div>
@@ -451,13 +562,36 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
             </div>
 
-            <button
-              onClick={handleDoorAccess}
-              disabled={loading}
-              className="w-full py-3 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-brand-surface-alt disabled:opacity-50 transition-colors"
-            >
-              {loading ? 'Booking & Opening Door...' : '🔓 Book Slot & Open Door'}
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={automatedBookAndUnlock}
+                disabled={loading || !homeOutlet || !targetOutlet}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded hover:from-purple-700 hover:to-blue-700 disabled:bg-brand-surface-alt disabled:opacity-50 transition-colors text-lg"
+              >
+                {loading ? '🚀 Automating Booking & Door Unlock...' : '🚀 AUTOMATED: Book + Unlock Door (1-Click)'}
+              </button>
+              
+              <div className="text-center text-sm text-brand-secondary-text">
+                ✨ Automated flow: Monthly pass → Today's date → Current time → Door unlock
+              </div>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-brand-border"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-brand-surface text-brand-secondary-text">or use manual booking</span>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleDoorAccess}
+                disabled={loading}
+                className="w-full py-3 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-brand-surface-alt disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Booking & Opening Door...' : '🔓 Manual Book Slot & Open Door'}
+              </button>
+            </div>
           </div>
         );
 

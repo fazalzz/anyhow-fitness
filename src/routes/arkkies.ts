@@ -22,7 +22,13 @@ router.get('/subscriptions', arkkiesController.getSubscriptions);
 // Test real API integration
 router.get('/test-real-api', arkkiesController.testRealAPI);
 
-// Book gym slot and open door
+// Test enhanced API with dynamic booking discovery
+router.post('/test-enhanced-api', arkkiesController.testEnhancedAPI);
+
+// COMPLETE AUTOMATION: Book + Unlock Door in one action
+router.post('/automated-book-unlock', arkkiesController.automatedBookAndUnlock);
+
+// Book gym slot and open door (legacy)
 router.post('/book-and-access', arkkiesController.bookAndAccessGym);
 
 // Get booking history
