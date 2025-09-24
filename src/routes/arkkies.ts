@@ -19,6 +19,9 @@ router.get('/outlets', arkkiesController.getOutlets);
 // Get user's active subscriptions
 router.get('/subscriptions', arkkiesController.getSubscriptions);
 
+// Test real API integration
+router.get('/test-real-api', arkkiesController.testRealAPI);
+
 // Book gym slot and open door
 router.post('/book-and-access', arkkiesController.bookAndAccessGym);
 

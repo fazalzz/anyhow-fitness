@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 import { encrypt, decrypt } from '../utils/encryption';
 import { logger } from '../utils/logger';
 import { AuthRequest } from '../middleware/auth';
+import { createRealArkkiesAPI } from '../utils/realArkkiesAPI';
 
 interface ArkkiesSession {
   cookies: string[];
@@ -396,29 +397,72 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response) => {
     logger.info(`⏳ Step 2: Booking time slot...`);
     await new Promise(resolve => setTimeout(resolve, 600));
     
-    logger.info(`⏳ Step 3: Sending door unlock command...`);
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    const bookingId = `ARK-${Date.now()}`;
+    logger.info(`⏳ Step 3: Attempting REAL door access...`);
+    
     const timestamp = new Date().toISOString();
     
-    logger.info(`✅ SUCCESS: Door opened successfully!`);
-    logger.info(`🎫 Booking ID: ${bookingId}`);
-    logger.info(`⏰ Access time: ${timestamp}`);
-    logger.info(`🚪 Door status: OPENED`);
-
+    // 🎯 TRY REAL ARKKIES API FIRST
+    try {
+      const realAPI = createRealArkkiesAPI(session.cookies || []);
+      
+      if (realAPI) {
+        logger.info(`🔗 Using REAL Arkkies API integration`);
+        
+        // Use your captured booking ID for now - in production this would come from a real booking
+        const realBookingId = '241120a4-deda-4838-a20f-1d558303dd30';
+        
+        const realBooking = await realAPI.accessDoor(realBookingId, targetOutletId);
+        
+        logger.info(`🎉 REAL door access successful!`);
+        
+        res.json({
+          success: true,
+          data: {
+            bookingId: realBooking.bookingId,
+            message: `🎉 REAL door access granted for ${targetOutletId}!`,
+            outlet: targetOutletId,
+            door: selectedDoor || 'Main Entrance',
+            timeSlot: new Date().toLocaleTimeString(),
+            timestamp,
+            accessGranted: true,
+            doorStatus: 'REAL ACCESS GRANTED',
+            doorEntryUrl: realBooking.doorEntryUrl,
+            accessCode: realBooking.accessCode,
+            qrCode: realBooking.qrCode,
+            instructions: [
+              '🚪 Click the door entry URL to open the gym door',
+              '📱 Or use the QR code at the gym entrance',
+              '✅ This is using REAL Arkkies API integration!'
+            ],
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+          }
+        });
+        return;
+      }
+    } catch (realApiError: any) {
+      logger.warn(`⚠️ Real API failed, falling back to simulation: ${realApiError.message}`);
+    }
+    
+    // 🔄 FALLBACK TO SIMULATION
+    logger.info(`� Using simulation mode as fallback`);
+    const bookingId = `SIM-${Date.now()}`;
+    
     res.json({
       success: true,
       data: {
         bookingId,
-        message: `🎉 Door successfully opened at ${targetOutletId}!`,
+        message: `🎉 Door access ready for ${targetOutletId}! (Simulation)`,
         outlet: targetOutletId,
         door: selectedDoor || 'Main Entrance',
         timeSlot: new Date().toLocaleTimeString(),
         timestamp,
         accessGranted: true,
-        doorStatus: 'OPENED',
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 min access
+        doorStatus: 'SIMULATION MODE',
+        instructions: [
+          '⚠️ Using simulation - Real API not available',
+          '🔧 Check your Arkkies session for real integration'
+        ],
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
       }
     });
 
@@ -469,6 +513,58 @@ export const getBookingHistory = async (req: AuthRequest, res: Response) => {
 
 export const getSessionStatus = checkExistingSession;
 
+// Test real Arkkies API integration
+export const testRealAPI = async (req: AuthRequest, res: Response) => {
+  try {
+    const session = activeSessions.get(req.user!.id);
+    
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: 'No active Arkkies session'
+      });
+    }
+
+    const realAPI = createRealArkkiesAPI(session.cookies || []);
+    
+    if (!realAPI) {
+      return res.json({
+        success: false,
+        error: 'No valid Arkkies session cookie found',
+        availableCookies: session.cookies?.length || 0
+      });
+    }
+
+    logger.info('🧪 Testing real Arkkies API...');
+    
+    // Test auth status
+    const authStatus = await realAPI.checkAuthStatus();
+    
+    // Test booking details with your captured booking ID
+    const testBookingId = '241120a4-deda-4838-a20f-1d558303dd30';
+    const bookingDetails = await realAPI.getBookingDetails(testBookingId);
+    
+    res.json({
+      success: true,
+      message: 'Real Arkkies API test successful!',
+      data: {
+        authStatus,
+        bookingDetails,
+        doorEntryUrl: realAPI.generateDoorEntryUrl(testBookingId)
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Real API test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Real API test failed',
+      details: error.message
+    });
+  }
+};
+
+// Debug endpoint to test page structure
 export const debugPageStructure = async (req: AuthRequest, res: Response) => {
   try {
     const { url } = req.body;

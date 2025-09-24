@@ -213,6 +213,36 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
+  const testRealAPI = async () => {
+    if (!token) return;
+    
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await fetch('/api/arkkies/test-real-api', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setSuccess('✅ Real API test successful! Your session can access real Arkkies endpoints.');
+        console.log('Real API test results:', data.data);
+      } else {
+        setError(`❌ Real API test failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      setError('❌ Failed to test real API connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const resetProcess = () => {
     setCurrentStep(1);
     setCredentials({ email: '', password: '' });
@@ -269,13 +299,22 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     )}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(2)}
-                  className="w-full py-3 bg-brand-primary text-brand-primary-text font-bold rounded hover:bg-brand-secondary transition-colors"
-                >
-                  Continue to Outlet Selection →
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    className="w-full py-3 bg-brand-primary text-brand-primary-text font-bold rounded hover:bg-brand-secondary transition-colors"
+                  >
+                    Continue to Outlet Selection →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={testRealAPI}
+                    className="w-full py-2 bg-blue-500 text-white font-bold rounded hover:bg-blue-600 transition-colors text-sm"
+                  >
+                    🧪 Test Real API Integration
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleLogin} className="space-y-4">
