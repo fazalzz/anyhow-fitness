@@ -85,12 +85,38 @@ const checkExistingSession = async (req: AuthRequest, res: Response) => {
 
 export const loginToArkkies = async (req: AuthRequest, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, testMode } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
         error: 'Email and password are required'
+      });
+    }
+
+    // TEST MODE: Skip real Arkkies login for testing
+    if (testMode === true || email === 'test@example.com') {
+      logger.info(`TEST MODE: Simulating successful Arkkies login for user: ${email}`);
+      
+      const sessionId = Date.now().toString();
+      const sessionData: ArkkiesSession = {
+        cookies: ['test-session-cookie'],
+        userId: req.user!.id,
+        sessionId,
+        loginTime: new Date(),
+        lastUsed: new Date()
+      };
+      
+      activeSessions.set(req.user!.id, sessionData);
+      saveSessionToPersistentStorage(req.user!.id, sessionData);
+
+      return res.json({
+        success: true,
+        data: {
+          sessionId,
+          message: 'Successfully logged into Arkkies (TEST MODE)',
+          testMode: true
+        }
       });
     }
 

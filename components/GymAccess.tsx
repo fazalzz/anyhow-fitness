@@ -328,44 +328,54 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <label className="block text-sm font-bold mb-3 text-brand-secondary-text">
                   Home Outlet (Your subscription outlet)
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select
+                  value={homeOutlet}
+                  onChange={(e) => setHomeOutlet(e.target.value)}
+                  className="w-full p-3 rounded bg-brand-surface-alt border border-brand-border text-brand-primary focus:border-brand-primary focus:outline-none"
+                >
+                  <option value="">Select your home outlet...</option>
                   {outlets.map((outlet) => (
-                    <button
-                      key={outlet.id}
-                      onClick={() => setHomeOutlet(outlet.id)}
-                      className={`p-3 rounded border text-left transition-colors ${
-                        homeOutlet === outlet.id
-                          ? 'bg-brand-primary text-brand-primary-text border-brand-primary'
-                          : 'bg-brand-surface-alt border-brand-border text-brand-primary hover:border-brand-primary'
-                      }`}
-                    >
-                      <div className="font-semibold">{outlet.name}</div>
-                      <div className="text-xs opacity-75">{outlet.location}</div>
-                    </button>
+                    <option key={outlet.id} value={outlet.id}>
+                      {outlet.name} - {outlet.location}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-bold mb-3 text-brand-secondary-text">
                   Target Outlet (Where you want to access)
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select
+                  value={targetOutlet}
+                  onChange={(e) => setTargetOutlet(e.target.value)}
+                  className="w-full p-3 rounded bg-brand-surface-alt border border-brand-border text-brand-primary focus:border-brand-secondary focus:outline-none"
+                >
+                  <option value="">Select target outlet...</option>
                   {outlets.map((outlet) => (
-                    <button
-                      key={outlet.id}
-                      onClick={() => setTargetOutlet(outlet.id)}
-                      className={`p-3 rounded border text-left transition-colors ${
-                        targetOutlet === outlet.id
-                          ? 'bg-brand-secondary text-brand-primary-text border-brand-secondary'
-                          : 'bg-brand-surface-alt border-brand-border text-brand-primary hover:border-brand-secondary'
-                      }`}
-                    >
-                      <div className="font-semibold">{outlet.name}</div>
-                      <div className="text-xs opacity-75">{outlet.location}</div>
-                    </button>
+                    <option key={outlet.id} value={outlet.id}>
+                      {outlet.name} - {outlet.location}
+                    </option>
                   ))}
-                </div>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold mb-3 text-brand-secondary-text">
+                  Select Door Access Point
+                </label>
+                <select
+                  value={selectedDoor}
+                  onChange={(e) => setSelectedDoor(e.target.value)}
+                  className="w-full p-3 rounded bg-brand-surface-alt border border-brand-border text-brand-primary focus:border-brand-primary focus:outline-none"
+                >
+                  <option value="">Select door access point...</option>
+                  {doors.map((door) => (
+                    <option key={door} value={door}>
+                      {door}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
@@ -396,32 +406,15 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <div className="text-sm text-brand-secondary-text mb-2">Booking Time:</div>
                 <div className="font-semibold">{new Date().toLocaleString()}</div>
               </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-bold mb-3 text-brand-secondary-text">
-                Select Door (if multiple available)
-              </label>
-              <div className="space-y-2">
-                {doors.map((door) => (
-                  <button
-                    key={door}
-                    onClick={() => setSelectedDoor(door)}
-                    className={`w-full p-3 rounded border text-left transition-colors ${
-                      selectedDoor === door
-                        ? 'bg-brand-primary text-brand-primary-text border-brand-primary'
-                        : 'bg-brand-surface-alt border-brand-border text-brand-primary hover:border-brand-primary'
-                    }`}
-                  >
-                    {door}
-                  </button>
-                ))}
+              <div className="bg-brand-surface-alt p-4 rounded">
+                <div className="text-sm text-brand-secondary-text mb-2">Selected Door:</div>
+                <div className="font-semibold">{selectedDoor || 'Main Entrance (default)'}</div>
               </div>
             </div>
 
             <button
               onClick={handleDoorAccess}
-              disabled={loading || !selectedDoor}
+              disabled={loading}
               className="w-full py-3 bg-green-600 text-white font-bold rounded hover:bg-green-700 disabled:bg-brand-surface-alt disabled:opacity-50 transition-colors"
             >
               {loading ? 'Booking & Opening Door...' : '🔓 Book Slot & Open Door'}
