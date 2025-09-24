@@ -55,40 +55,79 @@ export const loginToArkkies = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Step 1: Get login page to extract CSRF token
+    // Step 1: Get login page to extract CSRF token and form structure
     const loginPageResponse = await client.get('/portal/home');
     const $ = cheerio.load(loginPageResponse.data);
     
-    // Extract CSRF token (adjust selector based on actual form)
+    logger.info('Analyzing login page structure...');
+    
+    // Extract CSRF token from various possible locations
     const csrfToken = $('input[name="_token"]').attr('value') || 
-                     $('meta[name="csrf-token"]').attr('content');
+                     $('meta[name="csrf-token"]').attr('content') ||
+                     $('input[name="csrf_token"]').attr('value') ||
+                     $('meta[name="_token"]').attr('content');
 
-    // Step 2: Submit login form
-    const loginData = new URLSearchParams({
-      email,
-      password,
-      ...(csrfToken && { '_token': csrfToken })
-    });
+    // Find the login form and extract its action URL
+    const loginForm = $('form').first();
+    const formAction = loginForm.attr('action') || '/portal/login';
+    const formMethod = loginForm.attr('method') || 'POST';
 
-    const loginResponse = await client.post('/portal/login', loginData, {
+    // Extract input field names (they might not be 'email' and 'password')
+    const emailField = $('input[type="email"]').attr('name') || 
+                      $('input[placeholder*="email" i]').attr('name') || 
+                      'email';
+    const passwordField = $('input[type="password"]').attr('name') || 'password';
+
+    logger.info(`Login form details: action=${formAction}, method=${formMethod}, emailField=${emailField}, passwordField=${passwordField}, csrfToken=${csrfToken ? 'found' : 'not found'}`);
+
+    // Step 2: Submit login form with extracted field names
+    const loginData = new URLSearchParams();
+    loginData.append(emailField, email);
+    loginData.append(passwordField, password);
+    if (csrfToken) {
+      loginData.append('_token', csrfToken);
+    }
+
+    const loginResponse = await client.post(formAction, loginData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Referer': 'https://arkkies.com/portal/home'
+        'Referer': 'https://arkkies.com/portal/home',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
       },
-      maxRedirects: 0,
+      maxRedirects: 5,
       validateStatus: (status) => status < 400
     });
 
-    // Check if login was successful (look for redirect or success indicators)
-    const isLoggedIn = loginResponse.status === 302 || 
-                      loginResponse.data.includes('dashboard') ||
-                      loginResponse.data.includes('bookings');
+    // Analyze the response to determine if login was successful
+    const responseText = loginResponse.data;
+    const loginSuccessIndicators = [
+      'dashboard', 'bookings', 'logout', 'profile', 'account',
+      'welcome', 'subscription', 'membership', 'book now'
+    ];
+    
+    const loginFailureIndicators = [
+      'invalid', 'error', 'incorrect', 'failed', 'try again',
+      'username', 'password', 'login form'
+    ];
+
+    const hasSuccessIndicator = loginSuccessIndicators.some(indicator => 
+      responseText.toLowerCase().includes(indicator)
+    );
+    
+    const hasFailureIndicator = loginFailureIndicators.some(indicator => 
+      responseText.toLowerCase().includes(indicator)
+    );
+
+    const isLoggedIn = (loginResponse.status >= 200 && loginResponse.status < 400) && 
+                      hasSuccessIndicator && !hasFailureIndicator;
+
+    logger.info(`Login attempt result: status=${loginResponse.status}, hasSuccess=${hasSuccessIndicator}, hasFailure=${hasFailureIndicator}, isLoggedIn=${isLoggedIn}`);
 
     if (!isLoggedIn) {
-      logger.warn(`Failed to login to Arkkies for user: ${email}`);
+      logger.warn(`Failed to login to Arkkies for user: ${email} - Response contained failure indicators or missing success indicators`);
       return res.status(401).json({
         success: false,
-        error: 'Invalid Arkkies credentials'
+        error: 'Invalid Arkkies credentials or login failed'
       });
     }
 
@@ -101,9 +140,6 @@ export const loginToArkkies = async (req: AuthRequest, res: Response) => {
       userId: req.user!.id,
       sessionId
     });
-
-    // Encrypt and store credentials (optional - for repeated access)
-    const encryptedCredentials = encrypt(JSON.stringify({ email, password }));
 
     logger.info(`Successfully logged into Arkkies for user: ${email}`);
 
@@ -135,7 +171,7 @@ export const getOutlets = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Mock outlets for now - will scrape from actual site
+    // Fallback outlets for now
     const outlets: GymOutlet[] = [
       {
         id: 'downtown',
@@ -188,7 +224,7 @@ export const getSubscriptions = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // TODO: Scrape actual subscriptions from Arkkies
+    // Mock subscriptions for now
     const subscriptions = [
       {
         id: 'monthly-pass-1',
@@ -234,33 +270,6 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response) => {
 
     logger.info(`Booking gym access: ${homeOutletId} -> ${targetOutletId} for user: ${req.user!.id}`);
 
-    // Create axios client with session cookies
-    const client = axios.create({
-      baseURL: 'https://arkkies.com',
-      timeout: 30000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Cookie': session.cookies.join('; ')
-      }
-    });
-
-    // Step 1: Navigate to bookings page
-    const bookingsResponse = await client.get('/portal/bookings');
-    const $ = cheerio.load(bookingsResponse.data);
-
-    // Step 2: Find and select monthly pass
-    // (This would need to be customized based on actual site structure)
-    
-    // Step 3: Select target outlet and current time slot
-    const currentTime = new Date();
-    const timeSlot = `${currentTime.getHours()}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
-    
-    // Step 4: Submit booking form
-    // (Implementation depends on actual form structure)
-
-    // Step 5: Open door access
-    // (Implementation depends on door access mechanism)
-
     // For now, simulate the process
     await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -273,7 +282,7 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response) => {
         message: 'Successfully booked slot and opened gym door',
         outlet: targetOutletId,
         door: selectedDoor || 'Main Entrance',
-        timeSlot,
+        timeSlot: new Date().toLocaleTimeString(),
         accessGranted: true
       }
     });
@@ -298,7 +307,7 @@ export const getBookingHistory = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // TODO: Fetch actual booking history
+    // Mock booking history
     const bookings = [
       {
         id: 'booking-123',
@@ -319,6 +328,87 @@ export const getBookingHistory = async (req: AuthRequest, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get booking history'
+    });
+  }
+};
+
+export const debugPageStructure = async (req: AuthRequest, res: Response) => {
+  try {
+    const { url } = req.body;
+    const session = activeSessions.get(req.user!.id);
+    
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: 'No active Arkkies session'
+      });
+    }
+
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        error: 'URL is required'
+      });
+    }
+
+    // Create axios client with session cookies
+    const client = axios.create({
+      baseURL: 'https://arkkies.com',
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cookie': session.cookies.join('; ')
+      }
+    });
+
+    const response = await client.get(url);
+    const $ = cheerio.load(response.data);
+
+    // Extract useful information about the page structure
+    const pageStructure = {
+      title: $('title').text(),
+      forms: $('form').map((index, element) => ({
+        action: $(element).attr('action'),
+        method: $(element).attr('method'),
+        inputs: $(element).find('input').map((i, input) => ({
+          name: $(input).attr('name'),
+          type: $(input).attr('type'),
+          placeholder: $(input).attr('placeholder'),
+          value: $(input).attr('value')
+        })).get(),
+        selects: $(element).find('select').map((i, select) => ({
+          name: $(select).attr('name'),
+          options: $(select).find('option').map((j, option) => ({
+            value: $(option).attr('value'),
+            text: $(option).text()
+          })).get()
+        })).get()
+      })).get(),
+      links: $('a').map((index, element) => ({
+        href: $(element).attr('href'),
+        text: $(element).text().trim()
+      })).get().filter(link => link.text && link.href),
+      buttons: $('button, input[type="submit"]').map((index, element) => ({
+        text: $(element).text() || $(element).attr('value'),
+        type: $(element).attr('type'),
+        onclick: $(element).attr('onclick')
+      })).get(),
+      textContent: $('body').text().substring(0, 1000) // First 1000 chars
+    };
+
+    logger.info(`Debug page structure for ${url}:`, JSON.stringify(pageStructure, null, 2));
+
+    res.json({
+      success: true,
+      data: pageStructure
+    });
+
+  } catch (error: any) {
+    logger.error('Error debugging page structure:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to debug page structure',
+      details: error.message
     });
   }
 };

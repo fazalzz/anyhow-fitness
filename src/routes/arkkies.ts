@@ -22,4 +22,7 @@ router.post('/book-and-access', arkkiesController.bookAndAccessGym);
 // Get booking history
 router.get('/bookings', arkkiesController.getBookingHistory);
 
+// Debug endpoint to analyze website structure
+router.post('/debug-page', arkkiesController.debugPageStructure);
+
 export default router;
