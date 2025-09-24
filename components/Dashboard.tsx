@@ -48,7 +48,7 @@ const Dashboard: React.FC = () => {
       <header className="flex items-center justify-between p-4 bg-brand-bg shadow-md">
         <div className="flex items-center">
             <Logo size="small" className="mr-3" />
-            <h1 className="text-xl font-bold">Welcome, {currentUser.name}</h1>
+            <h1 className="text-xl font-bold">Welcome, {currentUser.displayName}</h1>
         </div>
         <button onClick={logout} className="text-sm font-semibold text-brand-secondary-text hover:text-brand-primary">Logout</button>
       </header>

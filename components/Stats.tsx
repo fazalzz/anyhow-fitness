@@ -643,10 +643,11 @@ const Stats: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-4">
-                <BackButton onClick={onBack} />
+            <div className="relative flex items-center justify-center mb-4">
+                <div className="absolute left-0">
+                    <BackButton onClick={onBack} />
+                </div>
                 <h2 className="text-2xl font-bold">Your Progress</h2>
-                <div></div> {/* Spacer for centering */}
             </div>
             
             <div className="flex border-b border-brand-border mb-4">

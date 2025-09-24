@@ -6,18 +6,18 @@ import { AuthRequest } from '../middleware/auth';
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, phone_number, avatar, is_private, created_at FROM users'
+      'SELECT id, username, display_name, phone_number, avatar, is_private, created_at FROM users'
     );
-    
     // Transform field names for frontend
-    const transformedUsers = result.rows.map(user => {
-      const { phone_number, ...userData } = user;
-      return {
-        ...userData,
-        phoneNumber: phone_number // Transform snake_case to camelCase
-      };
-    });
-    
+    const transformedUsers = result.rows.map(user => ({
+      id: user.id,
+      username: user.username,
+      displayName: user.display_name,
+      avatar: user.avatar,
+      isPrivate: user.is_private,
+      phoneNumber: user.phone_number,
+      createdAt: user.created_at
+    }));
     res.json(transformedUsers);
   } catch (error) {
     console.error('Get all users error:', error);
@@ -28,18 +28,20 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
 export const updateUser = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user.id;
-    const { name, phoneNumber, avatar, is_private } = req.body;
+    const { displayName, phoneNumber, avatar, isPrivate } = req.body;
+
+    console.log('Update user request:', { userId, displayName, phoneNumber, avatar, isPrivate });
 
     const result = await pool.query(
       `UPDATE users 
-       SET name = COALESCE($1, name), 
+       SET display_name = COALESCE($1, display_name), 
            phone_number = COALESCE($2, phone_number),
            avatar = COALESCE($3, avatar),
            is_private = COALESCE($4, is_private),
            updated_at = NOW()
        WHERE id = $5
-       RETURNING id, name, phone_number, avatar, is_private, created_at, updated_at`,
-      [name, phoneNumber, avatar, is_private, userId]
+       RETURNING id, username, display_name, phone_number, avatar, is_private, created_at, updated_at`,
+      [displayName, phoneNumber, avatar, isPrivate, userId]
     );
 
     if (result.rows.length === 0) {
@@ -47,14 +49,19 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     }
 
     const user = result.rows[0];
-    
     // Transform field names for frontend
-    const { phone_number, ...userData } = user;
     const transformedUser = {
-      ...userData,
-      phoneNumber: phone_number // Transform snake_case to camelCase
+      id: user.id,
+      username: user.username,
+      displayName: user.display_name,
+      avatar: user.avatar,
+      isPrivate: user.is_private,
+      phoneNumber: user.phone_number,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
     };
 
+    console.log('User updated successfully:', transformedUser);
     res.json(transformedUser);
   } catch (error) {
     console.error('Update user error:', error);
@@ -95,6 +102,41 @@ export const changePin = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'PIN changed successfully' });
   } catch (error) {
     console.error('Change PIN error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const searchUserByDisplayName = async (req: AuthRequest, res: Response) => {
+  try {
+    const { name } = req.query;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Display name is required' });
+    }
+
+    const result = await pool.query(
+      'SELECT id, username, display_name, phone_number, avatar, is_private, created_at FROM users WHERE display_name = $1',
+      [name]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    const transformedUser = {
+      id: user.id,
+      username: user.username,
+      displayName: user.display_name,
+      avatar: user.avatar,
+      isPrivate: user.is_private,
+      phoneNumber: user.phone_number,
+      createdAt: user.created_at
+    };
+
+    res.json(transformedUser);
+  } catch (error) {
+    console.error('Search user error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

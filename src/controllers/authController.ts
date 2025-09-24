@@ -35,10 +35,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError('PIN must be 8 digits', STATUS.BAD_REQUEST);
   }
 
-  // Check if user exists
+  // Generate unique username from display name
+  const baseUsername = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  const username = `${baseUsername}_${randomSuffix}`;
+
+  // Check if user exists (by phone number only now, since usernames are auto-generated)
   const userExists = await db.query(
-    'SELECT id FROM users WHERE name = $1 OR phone_number = $2',
-    [name, phoneNumber]
+    'SELECT id FROM users WHERE phone_number = $1',
+    [phoneNumber]
   );
 
   if (userExists.rows.length > 0) {
@@ -50,27 +55,38 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   // Create user
   const newUser = await db.query(
-    `INSERT INTO users (name, phone_number, pin_hash) 
-     VALUES ($1, $2, $3) 
-     RETURNING id, name, phone_number, avatar, is_private, created_at`,
-    [name, phoneNumber, pinHash]
+    `INSERT INTO users (username, display_name, phone_number, pin_hash) 
+     VALUES ($1, $2, $3, $4) 
+     RETURNING id, username, display_name, phone_number, avatar, is_private, created_at`,
+    [username, name, phoneNumber, pinHash]
   );
 
+  const user = newUser.rows[0];
+  const transformedUser = {
+    id: user.id,
+    username: user.username,
+    displayName: user.display_name,
+    avatar: user.avatar,
+    isPrivate: user.is_private,
+    phoneNumber: user.phone_number,
+    createdAt: user.created_at
+  };
+
   // Generate token
-  const token = generateToken({ id: newUser.rows[0].id, name });
+  const token = generateToken({ id: user.id, name: user.display_name });
 
   res.status(STATUS.CREATED).json({
     token,
-    user: newUser.rows[0]
+    user: transformedUser
   });
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { name, pin } = req.body;
 
-  // Find user
+  // Find user by display name (for login compatibility)
   const userResult = await db.query(
-    'SELECT * FROM users WHERE name = $1',
+    'SELECT * FROM users WHERE display_name = $1',
     [name]
   );
 
@@ -87,13 +103,15 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Generate token
-  const token = generateToken({ id: user.id, name: user.name });
+  const token = generateToken({ id: user.id, name: user.display_name });
 
   // Remove sensitive data and transform field names for frontend
-  const { pin_hash, otp_code, otp_expires_at, phone_number, ...userData } = user;
+  const { pin_hash, otp_code, otp_expires_at, phone_number, display_name, ...userData } = user;
   
   const transformedUser = {
     ...userData,
+    displayName: display_name, // Use display_name as displayName for frontend
+    isPrivate: user.is_private, // Transform snake_case to camelCase
     phoneNumber: phone_number // Transform snake_case to camelCase
   };
 
@@ -109,7 +127,7 @@ export const requestResetCode = async (req: Request, res: Response) => {
 
     // Find user
     const userResult = await db.query(
-      'SELECT * FROM users WHERE name = $1',
+      'SELECT * FROM users WHERE display_name = $1',
       [name]
     );
 
@@ -145,7 +163,7 @@ export const resetPin = async (req: Request, res: Response) => {
 
     // Find user
     const userResult = await db.query(
-      'SELECT * FROM users WHERE name = $1',
+      'SELECT * FROM users WHERE display_name = $1',
       [name]
     );
 

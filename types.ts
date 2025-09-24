@@ -1,9 +1,10 @@
 // Common shared types between frontend and backend
 export interface BaseUser {
   id: string;
-  name: string;
+  username: string; // hidden/internal unique user id
+  displayName: string; // display name for UI
   avatar?: string;
-  is_private: boolean;
+  isPrivate: boolean;
 }
 
 // Frontend-specific user type

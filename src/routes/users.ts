@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllUsers, updateUser, changePin } from '../controllers/userController';
+import { getAllUsers, updateUser, changePin, searchUserByDisplayName } from '../controllers/userController';
 import { getUserCustomExercises, createCustomExercise, deleteCustomExercise } from '../controllers/customExerciseController';
 import { authenticateToken } from '../middleware/auth';
 import { validateChangePin } from '../middleware/validation';
@@ -7,6 +7,7 @@ import { validateChangePin } from '../middleware/validation';
 const router = express.Router();
 
 router.get('/', authenticateToken, getAllUsers);
+router.get('/search', authenticateToken, searchUserByDisplayName);
 router.put('/me', authenticateToken, updateUser);
 router.put('/me/change-pin', authenticateToken, validateChangePin, changePin);
 

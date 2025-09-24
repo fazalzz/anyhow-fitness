@@ -1,11 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Logo from './Logo';
 import { BackButton } from './common';
 
 const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { currentUser, updateUser, changePin, loading } = useAuth();
-    const [newName, setNewName] = useState(currentUser?.name || '');
+    const [newDisplayName, setNewDisplayName] = useState(currentUser?.displayName || '');
     const [newPhoneNumber, setNewPhoneNumber] = useState(currentUser?.phoneNumber || '');
     const [currentPin, setCurrentPin] = useState('');
     const [newPin, setNewPin] = useState('');
@@ -27,14 +26,14 @@ const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setTimeout(() => setSuccess(''), 3000);
     };
 
-    const handleNameChange = async (e: React.FormEvent) => {
+    const handleDisplayNameChange = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (newName.trim() === '') {
-            return setError('Name cannot be empty.');
+        if (newDisplayName.trim() === '') {
+            return setError('Display name cannot be empty.');
         }
-        await updateUser(currentUser.id, { name: newName });
-        showSuccessMessage('Name updated successfully!');
+        await updateUser(currentUser.id, { displayName: newDisplayName });
+        showSuccessMessage('Display name updated successfully!');
     };
     
     const handlePhoneChange = async (e: React.FormEvent) => {
@@ -76,11 +75,10 @@ const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             {error && <p className="bg-brand-surface-alt border border-brand-border text-brand-primary text-xs p-3 rounded mb-4">{error}</p>}
             {success && <p className="bg-brand-surface-alt border border-brand-border text-brand-primary text-xs p-3 rounded mb-4">{success}</p>}
             
-            <form onSubmit={handleNameChange} className="mb-4">
-                <label className="block text-sm font-bold mb-2 text-brand-secondary-text">Name</label>
-                <div className="flex gap-2">
-                    <input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border" disabled={loading} />
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-brand-primary-text font-bold rounded disabled:bg-brand-surface-alt" disabled={loading}>{loading ? '...' : 'Save'}</button>
+                        <form onSubmit={handleDisplayNameChange} className="mb-4">
+                <div className="flex space-x-2">
+                    <input type="text" value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border" disabled={loading} />
+                    <button type="submit" disabled={loading} className="px-4 py-2 bg-brand-primary text-brand-primary-text font-semibold rounded hover:bg-brand-secondary disabled:bg-brand-surface-alt">Update</button>
                 </div>
             </form>
             
@@ -139,7 +137,7 @@ const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
 
     const handlePrivacyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        updateUser(currentUser.id, { is_private: e.target.checked });
+        updateUser(currentUser.id, { isPrivate: e.target.checked });
     };
 
     const maskedPhone = currentUser.phoneNumber 
@@ -148,13 +146,8 @@ const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-start justify-start mb-6">
                 <BackButton onClick={onBack} />
-                <div className="flex items-center">
-                    <Logo size="medium" className="mr-3" />
-                    <h2 className="text-2xl font-bold">Profile & Settings</h2>
-                </div>
-                <div></div> {/* Spacer for centering */}
             </div>
             
             <div className="bg-brand-surface p-4 rounded-lg mb-6">
@@ -168,8 +161,8 @@ const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <div className="flex items-center">
                     <button onClick={() => avatarInputRef.current?.click()} className="relative group">
                         <img 
-                            src={currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=667eea&color=fff&size=64`} 
-                            alt={currentUser.name} 
+                            src={currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName)}&background=667eea&color=fff&size=64`} 
+                            alt={currentUser.displayName} 
                             className="w-16 h-16 rounded-full mr-4 border-2 border-brand-primary" 
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -177,7 +170,7 @@ const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </div>
                     </button>
                     <div>
-                        <h3 className="text-xl font-semibold">{currentUser.name}</h3>
+                        <h3 className="text-xl font-semibold">{currentUser.displayName}</h3>
                         <p className="text-brand-secondary-text">Phone: {maskedPhone}</p>
                     </div>
                 </div>
@@ -194,7 +187,7 @@ const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             type="checkbox"
                             name="private-profile"
                             id="private-profile"
-                            checked={currentUser.is_private}
+                            checked={currentUser.isPrivate}
                             onChange={handlePrivacyChange}
                             className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
                         />
