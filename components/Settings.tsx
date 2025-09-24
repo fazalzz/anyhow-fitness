@@ -1,11 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { BackButton } from './common';
 
 const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { currentUser, updateUser, changePin, loading } = useAuth();
-    const [newDisplayName, setNewDisplayName] = useState(currentUser?.displayName || '');
-    const [newPhoneNumber, setNewPhoneNumber] = useState(currentUser?.phoneNumber || '');
+    const [newDisplayName, setNewDisplayName] = useState('');
+    const [newPhoneNumber, setNewPhoneNumber] = useState('');
     const [currentPin, setCurrentPin] = useState('');
     const [newPin, setNewPin] = useState('');
     const [confirmNewPin, setConfirmNewPin] = useState('');
@@ -13,10 +13,27 @@ const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
+    // Update local state when currentUser changes
+    useEffect(() => {
+        if (currentUser) {
+            console.log('AccountSettings: currentUser loaded', currentUser);
+            setNewDisplayName(currentUser.displayName || '');
+            setNewPhoneNumber(currentUser.phoneNumber || '');
+        }
+    }, [currentUser]);
+
+    if (loading && !currentUser) {
+        return (
+            <div className="text-brand-secondary-text p-4">
+                Loading account settings...
+            </div>
+        );
+    }
+
     if (!currentUser) {
         return (
             <div className="text-brand-secondary-text p-4">
-                Unable to load account settings.
+                Unable to load account settings. Please try refreshing or logging in again.
             </div>
         );
     }
@@ -29,26 +46,43 @@ const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const handleDisplayNameChange = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         if (newDisplayName.trim() === '') {
             return setError('Display name cannot be empty.');
         }
-        await updateUser(currentUser.id, { displayName: newDisplayName });
-        showSuccessMessage('Display name updated successfully!');
+        if (newDisplayName.trim() === currentUser?.displayName) {
+            return setError('Display name is already set to this value.');
+        }
+        try {
+            await updateUser(currentUser.id, { displayName: newDisplayName.trim() });
+            showSuccessMessage('Display name updated successfully!');
+        } catch (error: any) {
+            setError(error.message || 'Failed to update display name.');
+        }
     };
     
     const handlePhoneChange = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         if (!/^\d{8}$/.test(newPhoneNumber)) {
             return setError('Phone number must be 8 digits.');
         }
-        await updateUser(currentUser.id, { phoneNumber: newPhoneNumber });
-        showSuccessMessage('Phone number updated successfully!');
+        if (newPhoneNumber === currentUser?.phoneNumber) {
+            return setError('Phone number is already set to this value.');
+        }
+        try {
+            await updateUser(currentUser.id, { phoneNumber: newPhoneNumber });
+            showSuccessMessage('Phone number updated successfully!');
+        } catch (error: any) {
+            setError(error.message || 'Failed to update phone number.');
+        }
     };
 
     const handlePinChange = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         if (!currentPin || !newPin || !confirmNewPin) {
             return setError('Please fill in all PIN fields.');
         }
@@ -58,48 +92,110 @@ const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (newPin !== confirmNewPin) {
             return setError('New PINs do not match.');
         }
-        const result = await changePin(currentUser.id, currentPin, newPin);
-        if (result.success) {
-            showSuccessMessage('PIN changed successfully!');
-            setCurrentPin('');
-            setNewPin('');
-            setConfirmNewPin('');
-        } else {
-            setError(result.error || 'Failed to change PIN.');
+        try {
+            const result = await changePin(currentUser.id, currentPin, newPin);
+            if (result.success) {
+                showSuccessMessage('PIN changed successfully!');
+                setCurrentPin('');
+                setNewPin('');
+                setConfirmNewPin('');
+            } else {
+                setError(result.error || 'Failed to change PIN.');
+            }
+        } catch (error: any) {
+            setError(error.message || 'An error occurred while changing PIN.');
         }
     };
 
     return (
-         <div className="bg-brand-surface p-4 rounded-lg mb-6">
+        <div className="bg-brand-surface p-4 rounded-lg mb-6">
             <h3 className="text-lg font-semibold mb-4">Account</h3>
             {error && <p className="bg-brand-surface-alt border border-brand-border text-brand-primary text-xs p-3 rounded mb-4">{error}</p>}
             {success && <p className="bg-brand-surface-alt border border-brand-border text-brand-primary text-xs p-3 rounded mb-4">{success}</p>}
             
-                        <form onSubmit={handleDisplayNameChange} className="mb-4">
+            <form onSubmit={handleDisplayNameChange} className="mb-4">
+                <label className="block text-sm font-bold mb-2 text-brand-secondary-text">Display Name</label>
                 <div className="flex space-x-2">
-                    <input type="text" value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border" disabled={loading} />
-                    <button type="submit" disabled={loading} className="px-4 py-2 bg-brand-primary text-brand-primary-text font-semibold rounded hover:bg-brand-secondary disabled:bg-brand-surface-alt">Update</button>
+                    <input 
+                        type="text" 
+                        value={newDisplayName} 
+                        onChange={e => setNewDisplayName(e.target.value)} 
+                        placeholder="Enter your display name"
+                        className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border text-brand-primary" 
+                        disabled={loading} 
+                    />
+                    <button 
+                        type="submit" 
+                        disabled={loading || newDisplayName.trim() === currentUser?.displayName} 
+                        className="px-4 py-2 bg-brand-primary text-brand-primary-text font-semibold rounded hover:bg-brand-secondary disabled:bg-brand-surface-alt disabled:opacity-50"
+                    >
+                        {loading ? '...' : 'Update'}
+                    </button>
                 </div>
             </form>
             
             <form onSubmit={handlePhoneChange} className="mb-6">
                 <label className="block text-sm font-bold mb-2 text-brand-secondary-text">Phone Number</label>
                 <div className="flex gap-2">
-                    <input type="tel" value={newPhoneNumber} onChange={e => setNewPhoneNumber(e.target.value)} maxLength={8} className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border" disabled={loading} />
-                    <button type="submit" className="px-4 py-2 bg-brand-primary text-brand-primary-text font-bold rounded disabled:bg-brand-surface-alt" disabled={loading}>{loading ? '...' : 'Save'}</button>
+                    <input 
+                        type="tel" 
+                        value={newPhoneNumber} 
+                        onChange={e => setNewPhoneNumber(e.target.value)} 
+                        placeholder="12345678"
+                        maxLength={8} 
+                        className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border text-brand-primary" 
+                        disabled={loading} 
+                    />
+                    <button 
+                        type="submit" 
+                        className="px-4 py-2 bg-brand-primary text-brand-primary-text font-bold rounded disabled:bg-brand-surface-alt disabled:opacity-50" 
+                        disabled={loading || newPhoneNumber === currentUser?.phoneNumber}
+                    >
+                        {loading ? '...' : 'Save'}
+                    </button>
                 </div>
             </form>
 
             <hr className="border-brand-border mb-6" />
 
-             <form onSubmit={handlePinChange}>
+            <form onSubmit={handlePinChange}>
                 <h4 className="text-md font-semibold mb-2 text-brand-primary">Change PIN</h4>
                 <div className="space-y-2">
-                    <input type="password" placeholder="Current PIN" value={currentPin} onChange={e => setCurrentPin(e.target.value)} maxLength={8} className="w-full p-2 rounded bg-brand-surface-alt border border-brand-border" disabled={loading} />
-                    <input type="password" placeholder="New PIN" value={newPin} onChange={e => setNewPin(e.target.value)} maxLength={8} className="w-full p-2 rounded bg-brand-surface-alt border border-brand-border" disabled={loading} />
-                    <input type="password" placeholder="Confirm New PIN" value={confirmNewPin} onChange={e => setConfirmNewPin(e.target.value)} maxLength={8} className="w-full p-2 rounded bg-brand-surface-alt border border-brand-border" disabled={loading} />
+                    <input 
+                        type="password" 
+                        placeholder="Current PIN" 
+                        value={currentPin} 
+                        onChange={e => setCurrentPin(e.target.value)} 
+                        maxLength={8} 
+                        className="w-full p-2 rounded bg-brand-surface-alt border border-brand-border text-brand-primary" 
+                        disabled={loading} 
+                    />
+                    <input 
+                        type="password" 
+                        placeholder="New PIN" 
+                        value={newPin} 
+                        onChange={e => setNewPin(e.target.value)} 
+                        maxLength={8} 
+                        className="w-full p-2 rounded bg-brand-surface-alt border border-brand-border text-brand-primary" 
+                        disabled={loading} 
+                    />
+                    <input 
+                        type="password" 
+                        placeholder="Confirm New PIN" 
+                        value={confirmNewPin} 
+                        onChange={e => setConfirmNewPin(e.target.value)} 
+                        maxLength={8} 
+                        className="w-full p-2 rounded bg-brand-surface-alt border border-brand-border text-brand-primary" 
+                        disabled={loading} 
+                    />
                 </div>
-                 <button type="submit" className="w-full mt-3 py-2 bg-brand-secondary hover:bg-brand-primary text-brand-primary-text font-bold rounded transition-colors disabled:bg-brand-surface-alt" disabled={loading}>{loading ? 'Changing...' : 'Change PIN'}</button>
+                <button 
+                    type="submit" 
+                    className="w-full mt-3 py-2 bg-brand-secondary hover:bg-brand-primary text-brand-primary-text font-bold rounded transition-colors disabled:bg-brand-surface-alt disabled:opacity-50" 
+                    disabled={loading || !currentPin || !newPin || !confirmNewPin}
+                >
+                    {loading ? 'Changing...' : 'Change PIN'}
+                </button>
             </form>
         </div>
     );
