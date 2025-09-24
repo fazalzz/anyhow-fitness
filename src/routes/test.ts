@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { pool } from '../config/database';
+import { db } from '../config/database';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -7,7 +7,7 @@ const router = Router();
 // Test database connection
 router.get('/db', async (_req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT NOW()');
+    const result = await db.query('SELECT NOW()');
     res.json({ 
       status: 'OK',
       timestamp: result.rows[0].now,

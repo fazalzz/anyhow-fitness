@@ -1,4 +1,4 @@
-import { pool } from '../config/database';
+import { db } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
 export const hasAccessToUserData = async (requesterId: string, targetUserId: string): Promise<boolean> => {
@@ -7,7 +7,7 @@ export const hasAccessToUserData = async (requesterId: string, targetUserId: str
   }
 
   // Check if target user is private
-  const targetUserResult = await pool.query(
+  const targetUserResult = await db.query(
     'SELECT is_private FROM users WHERE id = $1',
     [targetUserId]
   );
@@ -24,7 +24,7 @@ export const hasAccessToUserData = async (requesterId: string, targetUserId: str
   }
 
   // Check if they are friends
-  const friendshipResult = await pool.query(
+  const friendshipResult = await db.query(
     `SELECT status FROM friendships 
      WHERE ((requester_id = $1 AND receiver_id = $2) 
         OR (requester_id = $2 AND receiver_id = $1))

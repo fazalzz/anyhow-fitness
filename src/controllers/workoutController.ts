@@ -114,7 +114,7 @@ export const getUserWorkouts = async (req: AuthRequest, res: Response) => {
 };
 
 export const createWorkout = async (req: AuthRequest, res: Response) => {
-  const client = await pool.connect();
+  const client = await db.getClient();
   
   try {
     await client.query('BEGIN');
