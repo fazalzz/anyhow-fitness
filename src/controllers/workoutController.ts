@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { pool } from '../config/database';
+import { db } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import { hasAccessToUserData } from '../utils/authorization';
 
@@ -54,7 +54,7 @@ export const getUserWorkouts = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const result = await pool.query(
+    const result = await db.query(
       `SELECT w.*, 
               json_agg(
                 DISTINCT jsonb_build_object(

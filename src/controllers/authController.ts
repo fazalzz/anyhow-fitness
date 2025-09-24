@@ -1,5 +1,5 @@
 import { Request as ExpressRequest, Response } from 'express';
-import { pool } from '../config/database';
+import { db } from '../config/database';
 import { hashPin, comparePin } from '../utils/bcrypt';
 import { generateToken } from '../utils/jwt';
 import { sendSms } from '../utils/twilio';
@@ -36,7 +36,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Check if user exists
-  const userExists = await pool.query(
+  const userExists = await db.query(
     'SELECT id FROM users WHERE name = $1 OR phone_number = $2',
     [name, phoneNumber]
   );
@@ -49,7 +49,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const pinHash = await hashPin(pin);
 
   // Create user
-  const newUser = await pool.query(
+  const newUser = await db.query(
     `INSERT INTO users (name, phone_number, pin_hash) 
      VALUES ($1, $2, $3) 
      RETURNING id, name, phone_number, avatar, is_private, created_at`,
@@ -69,7 +69,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   const { name, pin } = req.body;
 
   // Find user
-  const userResult = await pool.query(
+  const userResult = await db.query(
     'SELECT * FROM users WHERE name = $1',
     [name]
   );
@@ -108,7 +108,7 @@ export const requestResetCode = async (req: Request, res: Response) => {
     const { name } = req.body;
 
     // Find user
-    const userResult = await pool.query(
+    const userResult = await db.query(
       'SELECT * FROM users WHERE name = $1',
       [name]
     );
@@ -124,7 +124,7 @@ export const requestResetCode = async (req: Request, res: Response) => {
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Update user with OTP
-    await pool.query(
+    await db.query(
       'UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3',
       [otpCode, otpExpires, user.id]
     );
@@ -144,7 +144,7 @@ export const resetPin = async (req: Request, res: Response) => {
     const { name, code, newPin } = req.body;
 
     // Find user
-    const userResult = await pool.query(
+    const userResult = await db.query(
       'SELECT * FROM users WHERE name = $1',
       [name]
     );
@@ -164,7 +164,7 @@ export const resetPin = async (req: Request, res: Response) => {
     const pinHash = await hashPin(newPin || '');
 
     // Update user
-    await pool.query(
+    await db.query(
       'UPDATE users SET pin_hash = $1, otp_code = NULL, otp_expires_at = NULL WHERE id = $2',
       [pinHash, user.id]
     );
@@ -186,7 +186,7 @@ export const validateToken = asyncHandler(async (req: Request, res: Response) =>
   }
 
   // Fetch full user data from database
-  const userResult = await pool.query(
+  const userResult = await db.query(
     'SELECT id, name, phone_number, avatar, is_private, created_at FROM users WHERE id = $1',
     [tokenUser.id]
   );
