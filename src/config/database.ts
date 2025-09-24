@@ -1,9 +1,20 @@
 import { Pool, PoolConfig, QueryResult } from 'pg';
 import { logger } from '../utils/logger';
 
+// Configure SSL for production Supabase connection
+const getSslConfig = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return {
+      rejectUnauthorized: false,
+      ca: undefined // Accept Supabase's certificate
+    };
+  }
+  return false; // No SSL for local development
+};
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
+  ssl: getSslConfig()
 });
 
 export { pool };
@@ -25,7 +36,7 @@ class Database {
   private constructor(config: DatabaseConfig) {
     const poolConfig: PoolConfig = {
       connectionString: config.connectionString,
-      ssl: config.ssl || (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false),
+      ssl: config.ssl || getSslConfig(),
       max: parseInt(process.env.DB_MAX_CONNECTIONS || '10', 10), // Reduced for fly.io
       min: parseInt(process.env.DB_MIN_CONNECTIONS || '2', 10), // Keep minimum connections
       idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '10000', 10), // Reduced timeout
