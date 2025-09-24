@@ -29,7 +29,6 @@
       ]
     }
   ],
-  "functions": {},
   "regions": ["iad1"],
   "env": {
     "NODE_ENV": "production"
