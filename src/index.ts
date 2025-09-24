@@ -39,6 +39,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Add keep-alive headers for better performance
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Keep-Alive', 'timeout=5, max=1000');
+  next();
+});
+
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -71,8 +78,25 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+app.get('/api/health', async (req: Request, res: Response) => {
+  try {
+    // Quick database health check to keep connections warm
+    const { db } = await import('./config/database');
+    const isHealthy = await db.healthCheck();
+    
+    res.json({ 
+      status: 'OK', 
+      message: 'Server is running',
+      database: isHealthy ? 'connected' : 'disconnected',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'ERROR', 
+      message: 'Health check failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 });
 
 // Error handling middleware

@@ -26,9 +26,12 @@ class Database {
     const poolConfig: PoolConfig = {
       connectionString: config.connectionString,
       ssl: config.ssl || (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false),
-      max: parseInt(process.env.DB_MAX_CONNECTIONS || '20', 10),
-      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
-      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '5000', 10)
+      max: parseInt(process.env.DB_MAX_CONNECTIONS || '10', 10), // Reduced for fly.io
+      min: parseInt(process.env.DB_MIN_CONNECTIONS || '2', 10), // Keep minimum connections
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '10000', 10), // Reduced timeout
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '3000', 10), // Faster timeout
+      acquireTimeoutMillis: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '5000', 10), // Add acquire timeout
+      statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || '10000', 10) // Add statement timeout
     };
 
     if (!config.connectionString) {
