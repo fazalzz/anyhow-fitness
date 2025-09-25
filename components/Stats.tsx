@@ -540,7 +540,11 @@ const BodyWeightChart: React.FC<{data: BodyWeightEntry[]}> = ({ data }) => {
 
 type TimeFrame = '1week' | '1month' | '3months' | '6months' | '1year' | 'all';
 
-const BodyWeightHistoryTable: React.FC<{ data: BodyWeightEntry[] }> = ({ data }) => {
+const BodyWeightHistoryTable: React.FC<{ 
+    data: BodyWeightEntry[], 
+    onEdit: (entry: BodyWeightEntry) => void,
+    onDelete: (id: string) => void 
+}> = ({ data, onEdit, onDelete }) => {
     if (data.length === 0) {
         return null;
     }
@@ -554,13 +558,30 @@ const BodyWeightHistoryTable: React.FC<{ data: BodyWeightEntry[] }> = ({ data })
                     <tr>
                         <th scope="col" className="px-4 py-2">Date</th>
                         <th scope="col" className="px-4 py-2">Weight (kg)</th>
+                        <th scope="col" className="px-4 py-2">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {reversedData.map((entry) => (
                         <tr key={entry.id} className="bg-brand-surface-alt border-b border-brand-border last:border-b-0">
-                            <td className="px-4 py-2 font-mono">{new Date(entry.date).toLocaleDateString('en-CA')}</td>
-                            <td className="px-4 py-2 font-mono">{entry.weight.toFixed(1)}</td>
+                            <td className="px-4 py-2 font-mono text-brand-primary">{new Date(entry.date).toLocaleDateString('en-CA')}</td>
+                            <td className="px-4 py-2 font-mono text-brand-primary">{entry.weight.toFixed(1)}</td>
+                            <td className="px-4 py-2">
+                                <div className="flex space-x-2">
+                                    <button
+                                        onClick={() => onEdit(entry)}
+                                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => onDelete(entry.id)}
+                                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -571,10 +592,12 @@ const BodyWeightHistoryTable: React.FC<{ data: BodyWeightEntry[] }> = ({ data })
 
 const BodyStats: React.FC = () => {
     const { currentUser } = useAuth();
-    const { addBodyWeightEntry, getBodyWeightEntriesByUserId } = useWorkout();
+    const { addBodyWeightEntry, updateBodyWeightEntry, deleteBodyWeightEntry, getBodyWeightEntriesByUserId } = useWorkout();
     const [weight, setWeight] = useState('');
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeFrame, setTimeFrame] = useState<TimeFrame>('3months');
+    const [editingEntry, setEditingEntry] = useState<BodyWeightEntry | null>(null);
 
     if (!currentUser) return null;
 
@@ -613,17 +636,50 @@ const BodyStats: React.FC = () => {
     const handleAddWeight = async (e: React.FormEvent) => {
         e.preventDefault();
         const weightNum = parseFloat(weight);
-        if (weightNum > 0 && currentUser) {
+        if (weightNum > 0 && currentUser && date) {
             setIsSubmitting(true);
-            const newEntry: BodyWeightEntry = {
-                id: Date.now().toString(),
-                userId: currentUser.id,
-                date: new Date().toISOString(),
-                weight: weightNum,
-            };
-            await addBodyWeightEntry(newEntry);
+            const selectedDate = new Date(date);
+            selectedDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+            
+            if (editingEntry) {
+                // Update existing entry
+                await updateBodyWeightEntry(editingEntry.id, {
+                    weight: weightNum,
+                    date: selectedDate.toISOString()
+                });
+            } else {
+                // Create new entry
+                const newEntry: BodyWeightEntry = {
+                    id: Date.now().toString(),
+                    userId: currentUser.id,
+                    date: selectedDate.toISOString(),
+                    weight: weightNum,
+                };
+                await addBodyWeightEntry(newEntry);
+            }
+            
             setWeight('');
+            setDate(new Date().toISOString().split('T')[0]);
+            setEditingEntry(null);
             setIsSubmitting(false);
+        }
+    };
+
+    const handleEdit = (entry: BodyWeightEntry) => {
+        setEditingEntry(entry);
+        setWeight(entry.weight.toString());
+        setDate(new Date(entry.date).toISOString().split('T')[0]);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingEntry(null);
+        setWeight('');
+        setDate(new Date().toISOString().split('T')[0]);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm('Are you sure you want to delete this entry?')) {
+            await deleteBodyWeightEntry(id);
         }
     };
 
@@ -641,23 +697,43 @@ const BodyStats: React.FC = () => {
             <h3 className="text-xl font-semibold mb-4">Body Weight Tracker</h3>
             
             {/* Input Form */}
-            <form onSubmit={handleAddWeight} className="flex gap-2 mb-4">
-                <input 
-                    type="number"
-                    step="0.1"
-                    placeholder="Enter weight in kg"
-                    value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
-                    className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    disabled={isSubmitting}
-                />
-                <button 
-                    type="submit" 
-                    className="px-4 py-2 bg-brand-primary text-brand-primary-text font-bold rounded disabled:bg-brand-surface-alt"
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting ? '...' : 'Log'}
-                </button>
+            <form onSubmit={handleAddWeight} className="space-y-3 mb-4">
+                <div className="flex gap-2">
+                    <input 
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="flex-1 p-2 rounded bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary text-brand-primary"
+                        disabled={isSubmitting}
+                    />
+                    <input 
+                        type="number"
+                        step="0.1"
+                        placeholder="Weight (kg)"
+                        value={weight}
+                        onChange={(e) => setWeight(e.target.value)}
+                        className="flex-1 p-2 rounded bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary text-brand-primary"
+                        disabled={isSubmitting}
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <button 
+                        type="submit" 
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white font-bold rounded disabled:bg-brand-surface-alt disabled:text-brand-secondary-text"
+                        disabled={isSubmitting || !weight || !date}
+                    >
+                        {isSubmitting ? '...' : editingEntry ? 'Update Entry' : 'Add Entry'}
+                    </button>
+                    {editingEntry && (
+                        <button 
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className="px-4 py-2 bg-brand-surface border border-brand-border text-brand-secondary-text rounded hover:bg-brand-surface-alt"
+                        >
+                            Cancel
+                        </button>
+                    )}
+                </div>
             </form>
 
             {/* Time Frame Selection */}
@@ -678,7 +754,7 @@ const BodyStats: React.FC = () => {
             </div>
 
             <BodyWeightChart data={filteredData} />
-            <BodyWeightHistoryTable data={filteredData} />
+            <BodyWeightHistoryTable data={filteredData} onEdit={handleEdit} onDelete={handleDelete} />
         </div>
     )
 }

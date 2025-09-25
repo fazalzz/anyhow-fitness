@@ -16,6 +16,8 @@ interface WorkoutContextType {
   getHighestWeight: (userId: string, exerciseId: string, variation: 'Bilateral' | 'Unilateral') => number;
   getBrandsForExercise: (userId: string, exerciseId: string) => string[];
   addBodyWeightEntry: (entry: BodyWeightEntry) => Promise<void>;
+  updateBodyWeightEntry: (id: string, entry: Partial<BodyWeightEntry>) => Promise<void>;
+  deleteBodyWeightEntry: (id: string) => Promise<void>;
   getBodyWeightEntriesByUserId: (userId: string) => BodyWeightEntry[];
 }
 
@@ -161,6 +163,31 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  const updateBodyWeightEntry = async (id: string, entryUpdate: Partial<BodyWeightEntry>) => {
+    try {
+      const result = await api.apiUpdateBodyWeightEntry(id, entryUpdate);
+      if (result.success && result.data) {
+        const updatedEntry: BodyWeightEntry = result.data;
+        setBodyWeightEntries(prev => 
+          prev.map(entry => entry.id === id ? updatedEntry : entry)
+        );
+      }
+    } catch (error) {
+      console.error('Error updating body weight entry:', error);
+    }
+  };
+
+  const deleteBodyWeightEntry = async (id: string) => {
+    try {
+      const result = await api.apiDeleteBodyWeightEntry(id);
+      if (result.success) {
+        setBodyWeightEntries(prev => prev.filter(entry => entry.id !== id));
+      }
+    } catch (error) {
+      console.error('Error deleting body weight entry:', error);
+    }
+  };
+
   const getBodyWeightEntriesByUserId = (userId: string): BodyWeightEntry[] => {
     return bodyWeightEntries
       .filter(entry => entry.userId === userId)
@@ -182,6 +209,8 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
         getHighestWeight, 
         getBrandsForExercise, 
         addBodyWeightEntry, 
+        updateBodyWeightEntry,
+        deleteBodyWeightEntry,
         getBodyWeightEntriesByUserId 
       }}
     >

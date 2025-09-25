@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkout } from '../context/WorkoutContext';
-import { DumbbellIcon, ChartIcon, WeightIcon, SettingsIcon } from './icons';
+import { DumbbellIcon, ChartIcon, WeightIcon, GymIcon } from './icons';
 
 interface HomeProps {
   onNavigate: (view: string) => void;
@@ -23,10 +23,10 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const shortcuts = [
     {
       id: 'workout',
-      title: 'Start Workout',
+      title: 'Start Workout', 
       description: 'Begin your fitness session',
       icon: DumbbellIcon,
-      view: 'GYM_ACCESS'
+      view: 'NEW_WORKOUT'
     },
     {
       id: 'stats',
@@ -43,11 +43,11 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       view: 'BODYWEIGHT'
     },
     {
-      id: 'settings',
-      title: 'Settings',
-      description: 'Manage your account',
-      icon: SettingsIcon,
-      view: 'SETTINGS'
+      id: 'gymaccess',
+      title: 'Gym Access',
+      description: 'Access Arkkies booking',
+      icon: GymIcon,
+      view: 'GYM_ACCESS'
     }
   ];
 

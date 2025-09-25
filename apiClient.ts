@@ -326,6 +326,25 @@ export const apiAddBodyWeightEntry = async (
   );
 };
 
+export const apiUpdateBodyWeightEntry = async (
+  id: string,
+  entry: Partial<BodyWeightEntry>
+): Promise<ApiResponse<BodyWeightEntry>> => {
+  return apiRequest<BodyWeightEntry>(
+    `/bodyweight/${id}`,
+    createRequestOptions('PUT', entry)
+  );
+};
+
+export const apiDeleteBodyWeightEntry = async (
+  id: string
+): Promise<ApiResponse<{ message: string }>> => {
+  return apiRequest<{ message: string }>(
+    `/bodyweight/${id}`,
+    createRequestOptions('DELETE')
+  );
+};
+
 // Create an axios-like API object for compatibility with gym routes
 export const api = {
   get: async (url: string) => {

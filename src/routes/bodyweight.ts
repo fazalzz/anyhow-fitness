@@ -1,5 +1,5 @@
 import express from 'express';
-import { getUserBodyWeightEntries, createBodyWeightEntry } from '../controllers/bodyWeightController';
+import { getUserBodyWeightEntries, createBodyWeightEntry, updateBodyWeightEntry, deleteBodyWeightEntry } from '../controllers/bodyWeightController';
 import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
@@ -13,5 +13,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 router.get('/user/:userId', authenticateToken, getUserBodyWeightEntries);
 router.post('/', authenticateToken, createBodyWeightEntry);
+router.put('/:id', authenticateToken, updateBodyWeightEntry);
+router.delete('/:id', authenticateToken, deleteBodyWeightEntry);
 
 export default router;
