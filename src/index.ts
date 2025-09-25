@@ -83,6 +83,8 @@ app.get('/', (req: Request, res: Response) => {
       health: '/api/health',
       test: '/api/test/routes (unauthenticated)',
       testDb: '/api/test/db (database test)',
+      testUsers: '/api/test/users (check users table)',
+      testLogin: 'POST /api/test/login (test login query)',
       testAuth: '/api/test/auth (requires token)'
     }
   });
