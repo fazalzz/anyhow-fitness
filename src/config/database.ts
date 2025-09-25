@@ -4,10 +4,9 @@ import { logger } from '../utils/logger';
 // Configure SSL for production Supabase connection
 const getSslConfig = () => {
   if (process.env.NODE_ENV === 'production') {
-    // For Supabase, we need to explicitly handle SSL 
+    // For Supabase, we need to explicitly handle SSL with proper configuration
     return {
-      rejectUnauthorized: false,
-      // Remove the sslmode parameter handling since pg library handles it differently
+      rejectUnauthorized: false
     };
   }
   return false; // No SSL for local development
@@ -15,7 +14,7 @@ const getSslConfig = () => {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: getSslConfig()
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 export { pool };
@@ -68,12 +67,12 @@ class Database {
   public static getInstance(): Database {
     if (!Database.instance) {
       const config: DatabaseConfig = {
-        ssl: getSslConfig() // Explicitly set SSL config
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
       };
       
       if (process.env.DATABASE_URL) {
-        // Remove sslmode parameter from connection string to avoid conflicts
-        config.connectionString = process.env.DATABASE_URL.replace(/[?&]sslmode=\w+/g, '');
+        // Use the connection string as-is for Supabase
+        config.connectionString = process.env.DATABASE_URL;
       } else {
         config.host = process.env.DB_HOST;
         config.port = parseInt(process.env.DB_PORT || '5432', 10);

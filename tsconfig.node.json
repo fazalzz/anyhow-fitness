@@ -7,5 +7,5 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },
-  "include": ["migrations/**/*.ts", "src/**/*.ts"]
+  "include": ["migrations/**/*.ts", "src/**/*.ts", "types.ts"]
 }
