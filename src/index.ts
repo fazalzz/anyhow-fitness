@@ -30,6 +30,7 @@ import bodyWeightRoutes from './routes/bodyweight';
 import friendshipRoutes from './routes/friendships';
 import arkkiesRoutes from './routes/arkkies';
 import gymRoutes from './routes/gyms';
+import testRoutes from './routes/test';
 
 const app = express();
 const PORT = process.env.PORT || 4000; // Always use 4000
@@ -71,6 +72,7 @@ app.use('/api/bodyweight', bodyWeightRoutes);
 app.use('/api/friendships', friendshipRoutes);
 app.use('/api/gyms', gymRoutes);
 app.use('/api/arkkies', arkkiesRoutes);
+app.use('/api/test', testRoutes);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
@@ -78,7 +80,10 @@ app.get('/', (req: Request, res: Response) => {
     message: 'Anyhow Fitness API Server',
     endpoints: {
       auth: '/api/auth/login or /api/auth/register',
-      health: '/api/health'
+      health: '/api/health',
+      test: '/api/test/routes (unauthenticated)',
+      testDb: '/api/test/db (database test)',
+      testAuth: '/api/test/auth (requires token)'
     }
   });
 });
