@@ -1,8 +1,6 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { FrontendUser as User } from '../types';
-
-// @ts-ignore  
-import * as api from '../src/apiClient';
+import * as api from '../apiClient';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -218,7 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Remove sensitive fields from update
       const { pin, ...safeUpdateData } = updatedData;
       
-      const result = await api.apiUpdateUser(userId, safeUpdateData);
+      const result = await api.apiUpdateUser(safeUpdateData);
       
       if (result.success && result.data) {
         const updatedUser = result.data;

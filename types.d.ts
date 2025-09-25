@@ -1,8 +1,11 @@
 export interface BaseUser {
     id: string;
     name: string;
+    username: string;
+    displayName: string;
     avatar?: string;
     is_private: boolean;
+    isPrivate: boolean;
 }
 export interface FrontendUser extends BaseUser {
     pin: string;

@@ -4,7 +4,7 @@ import type {
   FrontendPost as Post,
   FrontendBodyWeightEntry as BodyWeightEntry,
   ApiResponse
-} from '../types';
+} from './types';
 
 // @ts-ignore - Vite's env type
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -236,7 +236,6 @@ export const apiUpdateUserPin = async (
 };
 
 export const apiUpdateUser = async (
-  userId: string,
   updatedData: Partial<User>
 ): Promise<ApiResponse<User>> => {
   // Remove sensitive data

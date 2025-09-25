@@ -7,7 +7,7 @@ import { PlaceholderIcon } from './icons';
 import PostWorkoutModal from './PostWorkoutModal';
 import { BackButton } from './common';
 // @ts-ignore
-import { api } from '../src/apiClient';
+import { api } from '../apiClient';
 
 const MuscleGroupSelectionModal: React.FC<{
     onSelect: (muscleGroup: string) => void;

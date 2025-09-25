@@ -1,15 +1,15 @@
 import { Request, Response } from 'express';
-import { pool } from '../config/database';
+import { db } from '../config/database';
 import { hashPin, comparePin } from '../utils/bcrypt';
 import { AuthRequest } from '../middleware/auth';
 
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await pool.query(
+    const result = await db.query(
       'SELECT id, username, display_name, phone_number, avatar, is_private, created_at FROM users'
     );
     // Transform field names for frontend
-    const transformedUsers = result.rows.map(user => ({
+    const transformedUsers = result.rows.map((user: any) => ({
       id: user.id,
       username: user.username,
       displayName: user.display_name,
@@ -32,7 +32,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
 
     console.log('Update user request:', { userId, displayName, phoneNumber, avatar, isPrivate });
 
-    const result = await pool.query(
+    const result = await db.query(
       `UPDATE users 
        SET display_name = COALESCE($1, display_name), 
            phone_number = COALESCE($2, phone_number),
@@ -75,7 +75,7 @@ export const changePin = async (req: AuthRequest, res: Response) => {
     const { currentPin, newPin } = req.body;
 
     // Get current PIN hash
-    const userResult = await pool.query(
+    const userResult = await db.query(
       'SELECT pin_hash FROM users WHERE id = $1',
       [userId]
     );
@@ -94,7 +94,7 @@ export const changePin = async (req: AuthRequest, res: Response) => {
     const newPinHash = await hashPin(newPin);
 
     // Update PIN
-    await pool.query(
+    await db.query(
       'UPDATE users SET pin_hash = $1 WHERE id = $2',
       [newPinHash, userId]
     );
@@ -114,8 +114,8 @@ export const searchUserByDisplayName = async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'Display name is required' });
     }
 
-    const result = await pool.query(
-      'SELECT id, username, display_name, phone_number, avatar, is_private, created_at FROM users WHERE display_name = $1',
+    const result = await db.query(
+      'SELECT id, username, display_name, phone_number, avatar, is_private, created_at FROM users WHERE display_name = $1 OR username = $1 OR name = $1',
       [name]
     );
 

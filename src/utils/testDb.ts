@@ -1,11 +1,10 @@
-import { pool } from '../config/database';
+import { db } from '../config/database';
 
 async function testConnection() {
   try {
-    const client = await pool.connect();
     console.log('Testing database connection...');
     
-    const result = await client.query('SELECT NOW() as now');
+    const result = await db.query('SELECT NOW() as now');
     console.log('Database connected successfully at:', result.rows[0].now);
     
     // Test each table
@@ -20,7 +19,7 @@ async function testConnection() {
     ];
 
     for (const table of tables) {
-      const { rows } = await client.query(`
+      const { rows } = await db.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public' 
@@ -31,12 +30,9 @@ async function testConnection() {
       console.log(`Table ${table}: ${rows[0].exists ? 'exists ✓' : 'missing ✗'}`);
     }
 
-    client.release();
   } catch (err) {
     console.error('Database connection test failed:', err);
     process.exit(1);
-  } finally {
-    await pool.end();
   }
 }
 

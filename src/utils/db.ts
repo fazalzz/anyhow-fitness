@@ -153,5 +153,5 @@ export class Database {
 }
 
 // Create and export a singleton instance
-import { pool } from '../config/database';
+import { db } from '../config/database';
 export const db = new Database(pool);

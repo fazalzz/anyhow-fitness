@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { pool } from '../config/database';
+import { db } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import { hasAccessToUserData } from '../utils/authorization';
 
@@ -13,7 +13,7 @@ export const getUserBodyWeightEntries = async (req: AuthRequest, res: Response) 
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const result = await pool.query(
+    const result = await db.query(
       'SELECT * FROM body_weight_entries WHERE user_id = $1 ORDER BY date DESC',
       [targetUserId]
     );
@@ -30,7 +30,7 @@ export const createBodyWeightEntry = async (req: AuthRequest, res: Response) => 
     const userId = req.user.id;
     const { weight, date } = req.body;
 
-    const result = await pool.query(
+    const result = await db.query(
       `INSERT INTO body_weight_entries (user_id, weight, date) 
        VALUES ($1, $2, $3) RETURNING *`,
       [userId, weight, date || new Date()]

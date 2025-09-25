@@ -1,18 +1,18 @@
 import { Request, Response } from 'express';
-import { pool } from '../config/database';
+import { db } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
 export const getUserCustomExercises = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user.id;
     
-    const result = await pool.query(
+    const result = await db.query(
       'SELECT id, name, muscle_group, created_at FROM custom_exercises WHERE user_id = $1 ORDER BY name',
       [userId]
     );
     
     // Transform field names for frontend
-    const transformedExercises = result.rows.map(exercise => ({
+    const transformedExercises = result.rows.map((exercise: any) => ({
       id: exercise.id,
       name: exercise.name,
       muscleGroup: exercise.muscle_group,
@@ -35,7 +35,7 @@ export const createCustomExercise = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Name and muscle group are required' });
     }
     
-    const result = await pool.query(
+    const result = await db.query(
       `INSERT INTO custom_exercises (user_id, name, muscle_group) 
        VALUES ($1, $2, $3) 
        RETURNING id, name, muscle_group, created_at`,
@@ -70,7 +70,7 @@ export const deleteCustomExercise = async (req: AuthRequest, res: Response) => {
     const userId = req.user.id;
     const { exerciseId } = req.params;
     
-    const result = await pool.query(
+    const result = await db.query(
       'DELETE FROM custom_exercises WHERE id = $1 AND user_id = $2 RETURNING id',
       [exerciseId, userId]
     );

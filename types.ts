@@ -2,9 +2,11 @@
 export interface BaseUser {
   id: string;
   username: string; // hidden/internal unique user id
-  displayName: string; // display name for UI
+  name: string; // display name for UI (database column)
+  displayName: string; // alias for name for UI compatibility
   avatar?: string;
-  isPrivate: boolean;
+  is_private: boolean; // database column
+  isPrivate: boolean; // alias for is_private for UI compatibility
 }
 
 // Frontend-specific user type

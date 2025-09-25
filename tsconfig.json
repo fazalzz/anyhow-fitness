@@ -21,6 +21,7 @@
   "include": [
     "*.tsx",
     "*.ts",
+    "apiClient.ts",
     "components/**/*",
     "hooks/**/*",
     "context/**/*"

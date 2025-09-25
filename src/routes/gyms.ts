@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { pool } from '../config/database';
+import { db } from '../config/database';
 
 const router = Router();
 
@@ -25,11 +25,11 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       ORDER BY g.is_system_gym DESC, g.name ASC, gb.name ASC
     `;
     
-    const result = await pool.query(query, [userId]);
+    const result = await db.query(query, [userId]);
     
     // Group branches by gym
     const gymsMap = new Map();
-    result.rows.forEach(row => {
+    result.rows.forEach((row: any) => {
       if (!gymsMap.has(row.gym_id)) {
         gymsMap.set(row.gym_id, {
           id: row.gym_id,
@@ -65,7 +65,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Gym name is required' });
     }
     
-    const gymResult = await pool.query(
+    const gymResult = await db.query(
       'INSERT INTO gyms (name, created_by) VALUES ($1, $2) RETURNING *',
       [name.trim(), userId]
     );
@@ -73,7 +73,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     const gym = gymResult.rows[0];
     
     // Grant access to the creator
-    await pool.query(
+    await db.query(
       'INSERT INTO user_gym_access (user_id, gym_id) VALUES ($1, $2)',
       [userId, gym.id]
     );
@@ -102,7 +102,7 @@ router.post('/:gymId/branches', authenticateToken, async (req: AuthRequest, res:
     }
     
     // Check if user has access to this gym
-    const accessCheck = await pool.query(
+    const accessCheck = await db.query(
       `SELECT g.name as gym_name FROM gyms g 
        LEFT JOIN user_gym_access uga ON g.id = uga.gym_id AND uga.user_id = $1
        WHERE g.id = $2 AND (g.is_system_gym = TRUE OR uga.user_id = $1)`,
@@ -116,7 +116,7 @@ router.post('/:gymId/branches', authenticateToken, async (req: AuthRequest, res:
     const gymName = accessCheck.rows[0].gym_name;
     const fullName = `${gymName} - ${name.trim()}`;
     
-    const branchResult = await pool.query(
+    const branchResult = await db.query(
       'INSERT INTO gym_branches (gym_id, name, full_name, address, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [gymId, name.trim(), fullName, address?.trim() || null, userId]
     );
@@ -153,7 +153,7 @@ router.get('/branches', authenticateToken, async (req: AuthRequest, res: Respons
       ORDER BY g.is_system_gym DESC, gb.full_name ASC
     `;
     
-    const result = await pool.query(query, [userId]);
+    const result = await db.query(query, [userId]);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching gym branches:', error);

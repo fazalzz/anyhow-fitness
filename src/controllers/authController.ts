@@ -84,9 +84,9 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { name, pin } = req.body;
 
-  // Find user by display name (for login compatibility)
+  // Find user by display name, username, or name (for login flexibility)
   const userResult = await db.query(
-    'SELECT * FROM users WHERE display_name = $1',
+    'SELECT * FROM users WHERE display_name = $1 OR username = $1 OR name = $1',
     [name]
   );
 

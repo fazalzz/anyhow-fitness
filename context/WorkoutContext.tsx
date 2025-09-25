@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { FrontendWorkout as Workout, FrontendPost as Post, FrontendBodyWeightEntry as BodyWeightEntry } from '../types';
 // @ts-ignore
-import * as api from '../src/apiClient';
+import * as api from '../apiClient';
 
 interface WorkoutContextType {
   workouts: Workout[];
