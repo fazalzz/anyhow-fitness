@@ -1,7 +1,0 @@
-{
-  "name": "Anyhow Fitness",
-  "description": "A web application for a small group of friends to track their gym workouts, monitor progress with charts, celebrate personal records, and share post-workout pictures.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}
