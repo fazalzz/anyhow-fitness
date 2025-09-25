@@ -125,68 +125,107 @@ export const loginToArkkies = async (req: AuthRequest, res: Response) => {
 
     logger.info(`Attempting to login to Arkkies for user: ${email}`);
 
-    // Create axios instance with session support
+    // Create axios instance with better error handling and more robust configuration
     const client = axios.create({
       baseURL: 'https://arkkies.com',
-      timeout: 30000,
+      timeout: 45000, // Increased timeout
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+      },
+      withCredentials: true,
+      maxRedirects: 10
     });
 
     // Step 1: Get login page to extract CSRF token and form structure
+    logger.info('Fetching Arkkies login page...');
     const loginPageResponse = await client.get('/portal/home');
     const $ = cheerio.load(loginPageResponse.data);
     
     logger.info('Analyzing login page structure...');
     
-    // Extract CSRF token from various possible locations
+    // Extract CSRF token from multiple possible locations
     const csrfToken = $('input[name="_token"]').attr('value') || 
                      $('meta[name="csrf-token"]').attr('content') ||
                      $('input[name="csrf_token"]').attr('value') ||
-                     $('meta[name="_token"]').attr('content');
+                     $('meta[name="_token"]').attr('content') ||
+                     $('input[name="authenticity_token"]').attr('value');
 
-    // Find the login form and extract its action URL
+    // Find the login form and extract its details
     const loginForm = $('form').first();
     const formAction = loginForm.attr('action') || '/portal/login';
-    const formMethod = loginForm.attr('method') || 'POST';
+    const formMethod = (loginForm.attr('method') || 'POST').toUpperCase();
 
-    // Extract input field names (they might not be 'email' and 'password')
+    // Try multiple selectors to find email and password fields
     const emailField = $('input[type="email"]').attr('name') || 
+                      $('input[name*="email" i]').attr('name') ||
                       $('input[placeholder*="email" i]').attr('name') || 
+                      $('input[id*="email" i]').attr('name') ||
                       'email';
-    const passwordField = $('input[type="password"]').attr('name') || 'password';
+                      
+    const passwordField = $('input[type="password"]').attr('name') || 
+                         $('input[name*="password" i]').attr('name') ||
+                         $('input[placeholder*="password" i]').attr('name') ||
+                         $('input[id*="password" i]').attr('name') ||
+                         'password';
 
-    logger.info(`Login form details: action=${formAction}, method=${formMethod}, emailField=${emailField}, passwordField=${passwordField}, csrfToken=${csrfToken ? 'found' : 'not found'}`);
+    logger.info(`Login form analysis: action=${formAction}, method=${formMethod}, emailField=${emailField}, passwordField=${passwordField}, csrfToken=${csrfToken ? 'found' : 'not found'}`);
 
-    // Step 2: Submit login form with extracted field names
+    // Step 2: Submit login form with extracted details
     const loginData = new URLSearchParams();
     loginData.append(emailField, email);
     loginData.append(passwordField, password);
+    
     if (csrfToken) {
       loginData.append('_token', csrfToken);
+      loginData.append('csrf_token', csrfToken);
+      loginData.append('authenticity_token', csrfToken);
     }
 
-    const loginResponse = await client.post(formAction, loginData, {
+    // Add any hidden fields from the form
+    $('form input[type="hidden"]').each((i, elem) => {
+      const name = $(elem).attr('name');
+      const value = $(elem).attr('value');
+      if (name && value && name !== '_token' && name !== 'csrf_token') {
+        loginData.append(name, value);
+      }
+    });
+
+    const loginUrl = formAction.startsWith('http') ? formAction : `https://arkkies.com${formAction}`;
+    
+    logger.info(`Submitting login request to: ${loginUrl}`);
+    
+    const loginResponse = await client.post(loginUrl, loginData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Referer': 'https://arkkies.com/portal/home',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        'Origin': 'https://arkkies.com'
       },
-      maxRedirects: 5,
-      validateStatus: (status) => status < 400
+      maxRedirects: 10,
+      validateStatus: (status) => status < 500 // Allow redirects
     });
 
+    logger.info(`Login response: status=${loginResponse.status}, url=${loginResponse.request?.res?.responseUrl || 'unknown'}`);
+
     // Analyze the response to determine if login was successful
-    const responseText = loginResponse.data;
+    const responseText = loginResponse.data?.toString() || '';
+    const finalUrl = loginResponse.request?.res?.responseUrl || loginResponse.config?.url || '';
+    
+    // Enhanced success detection
     const loginSuccessIndicators = [
-      'dashboard', 'bookings', 'logout', 'profile', 'account',
-      'welcome', 'subscription', 'membership', 'book now'
+      'dashboard', 'bookings', 'logout', 'profile', 'account', 'member',
+      'welcome', 'subscription', 'membership', 'book now', 'my account',
+      'user-menu', 'nav-user', 'booking-history', 'upcoming-bookings'
     ];
     
     const loginFailureIndicators = [
-      'invalid', 'error', 'incorrect', 'failed', 'try again',
-      'username', 'password', 'login form'
+      'invalid', 'error', 'incorrect', 'failed', 'try again', 'sign in',
+      'login form', 'authentication failed', 'wrong', 'denied'
     ];
 
     const hasSuccessIndicator = loginSuccessIndicators.some(indicator => 
@@ -197,16 +236,23 @@ export const loginToArkkies = async (req: AuthRequest, res: Response) => {
       responseText.toLowerCase().includes(indicator)
     );
 
-    const isLoggedIn = (loginResponse.status >= 200 && loginResponse.status < 400) && 
-                      hasSuccessIndicator && !hasFailureIndicator;
+    // Also check URL for success (redirected to dashboard/member area)
+    const urlIndicatesSuccess = finalUrl.includes('dashboard') || 
+                               finalUrl.includes('member') || 
+                               finalUrl.includes('account') ||
+                               finalUrl.includes('bookings');
 
-    logger.info(`Login attempt result: status=${loginResponse.status}, hasSuccess=${hasSuccessIndicator}, hasFailure=${hasFailureIndicator}, isLoggedIn=${isLoggedIn}`);
+    const isLoggedIn = (loginResponse.status >= 200 && loginResponse.status < 400) && 
+                      (hasSuccessIndicator || urlIndicatesSuccess) && 
+                      !hasFailureIndicator;
+
+    logger.info(`Login result: status=${loginResponse.status}, hasSuccess=${hasSuccessIndicator}, hasFailure=${hasFailureIndicator}, urlSuccess=${urlIndicatesSuccess}, isLoggedIn=${isLoggedIn}`);
 
     if (!isLoggedIn) {
-      logger.warn(`Failed to login to Arkkies for user: ${email} - Response contained failure indicators or missing success indicators`);
+      logger.warn(`Failed to login to Arkkies for user: ${email}`);
       return res.status(401).json({
         success: false,
-        error: 'Invalid Arkkies credentials or login failed'
+        error: 'Invalid Arkkies credentials. Please check your email and password.'
       });
     }
 
@@ -225,21 +271,32 @@ export const loginToArkkies = async (req: AuthRequest, res: Response) => {
     activeSessions.set(req.user!.id, sessionData);
     saveSessionToPersistentStorage(req.user!.id, sessionData);
 
-    logger.info(`Successfully logged into Arkkies for user: ${email} - Session will persist`);
+    logger.info(`Successfully logged into Arkkies for user: ${email}`);
 
     res.json({
       success: true,
       data: {
         sessionId,
-        message: 'Successfully logged into Arkkies'
+        message: 'Successfully logged into Arkkies! You can now make bookings.'
       }
     });
 
   } catch (error: any) {
     logger.error('Error logging into Arkkies:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to connect to Arkkies';
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      errorMessage = 'Could not reach Arkkies website. Please check your internet connection.';
+    } else if (error.code === 'ETIMEDOUT') {
+      errorMessage = 'Arkkies website is taking too long to respond. Please try again.';
+    } else if (error.response?.status === 429) {
+      errorMessage = 'Too many login attempts. Please wait a moment and try again.';
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Failed to login to Arkkies'
+      error: errorMessage
     });
   }
 };
