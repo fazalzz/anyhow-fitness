@@ -40,14 +40,22 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const randomSuffix = Math.random().toString(36).substring(2, 8);
   const username = `${baseUsername}_${randomSuffix}`;
 
-  // Check if user exists (by phone number only now, since usernames are auto-generated)
-  const userExists = await db.query(
-    'SELECT id FROM users WHERE phone_number = $1',
-    [phoneNumber]
-  );
+  try {
+    // Check if user exists (by phone number only now, since usernames are auto-generated)
+    const userExists = await db.query(
+      'SELECT id FROM users WHERE phone_number = $1',
+      [phoneNumber]
+    );
 
-  if (userExists.rows.length > 0) {
-    throw new ApiError('User already exists', STATUS.CONFLICT);
+    if (userExists.rows.length > 0) {
+      throw new ApiError('User already exists', STATUS.CONFLICT);
+    }
+  } catch (dbError: any) {
+    console.error('Database error checking existing user:', dbError);
+    if (dbError.message.includes('relation "users" does not exist')) {
+      throw new ApiError('Database not initialized. Please run migrations.', STATUS.INTERNAL_SERVER);
+    }
+    throw new ApiError('Database connection failed', STATUS.INTERNAL_SERVER);
   }
 
   // Hash PIN
@@ -82,13 +90,30 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
+  console.log('Login attempt:', { name: req.body.name, pinLength: req.body.pin?.length });
+  
   const { name, pin } = req.body;
 
-  // Find user by display name, username, or name (for login flexibility)
-  const userResult = await db.query(
-    'SELECT * FROM users WHERE display_name = $1 OR username = $1 OR name = $1',
-    [name]
-  );
+  if (!name || !pin) {
+    throw new ApiError('Name and PIN are required', STATUS.BAD_REQUEST);
+  }
+
+  let userResult;
+  try {
+    // Find user by display name, username, or name (for login flexibility)
+    userResult = await db.query(
+      'SELECT * FROM users WHERE display_name = $1 OR username = $1 OR name = $1',
+      [name]
+    );
+
+    console.log('User query result:', { found: userResult.rows.length });
+  } catch (dbError: any) {
+    console.error('Database error in login:', dbError);
+    if (dbError.message.includes('relation "users" does not exist')) {
+      throw new ApiError('Database not initialized. Please run migrations.', STATUS.INTERNAL_SERVER);
+    }
+    throw new ApiError('Database connection failed', STATUS.INTERNAL_SERVER);
+  }
 
   if (userResult.rows.length === 0) {
     throw new ApiError('Invalid credentials', STATUS.UNAUTHORIZED);
