@@ -9,7 +9,7 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
 
     // Get posts from user and their accepted friends, plus public posts from non-friends
     const result = await db.query(
-      `SELECT p.*, u.name as user_name, u.avatar as user_avatar
+      `SELECT p.*, u.display_name as user_name, u.avatar as user_avatar
        FROM posts p
        JOIN users u ON p.user_id = u.id
        WHERE p.user_id = $1 

@@ -8,7 +8,7 @@ import { ApiError } from '../types';
 
 interface Request extends ExpressRequest {
   body: {
-    name?: string;
+    name?: string; // Still using name as input for backward compatibility, mapped to displayName internally
     pin?: string;
     phoneNumber?: string;
     code?: string;
@@ -23,11 +23,11 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     headers: req.headers['content-type']
   });
 
-  const { name, pin, phoneNumber } = req.body;
+  const { name: displayName, pin, phoneNumber } = req.body;
 
   // Validate input
-  if (!name || !pin || !phoneNumber) {
-    console.log('Missing required fields:', { name, pin, phoneNumber });
+  if (!displayName || !pin || !phoneNumber) {
+    console.log('Missing required fields:', { displayName, pin, phoneNumber });
     throw new ApiError('All fields are required', STATUS.BAD_REQUEST);
   }
 
@@ -35,27 +35,14 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError('PIN must be 8 digits', STATUS.BAD_REQUEST);
   }
 
-  // Generate unique username from display name
-  const baseUsername = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const randomSuffix = Math.random().toString(36).substring(2, 8);
-  const username = `${baseUsername}_${randomSuffix}`;
+  // Check if user exists (by phone number)
+  const userExists = await db.query(
+    'SELECT id FROM users WHERE phone_number = $1',
+    [phoneNumber]
+  );
 
-  try {
-    // Check if user exists (by phone number only now, since usernames are auto-generated)
-    const userExists = await db.query(
-      'SELECT id FROM users WHERE phone_number = $1',
-      [phoneNumber]
-    );
-
-    if (userExists.rows.length > 0) {
-      throw new ApiError('User already exists', STATUS.CONFLICT);
-    }
-  } catch (dbError: any) {
-    console.error('Database error checking existing user:', dbError);
-    if (dbError.message.includes('relation "users" does not exist')) {
-      throw new ApiError('Database not initialized. Please run migrations.', STATUS.INTERNAL_SERVER);
-    }
-    throw new ApiError('Database connection failed', STATUS.INTERNAL_SERVER);
+  if (userExists.rows.length > 0) {
+    throw new ApiError('User already exists', STATUS.CONFLICT);
   }
 
   // Hash PIN
@@ -63,16 +50,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   // Create user
   const newUser = await db.query(
-    `INSERT INTO users (name, username, display_name, phone_number, pin_hash) 
-     VALUES ($1, $2, $3, $4, $5) 
-     RETURNING id, username, display_name, phone_number, avatar, is_private, created_at`,
-    [name, username, name, phoneNumber, pinHash]
+    `INSERT INTO users (display_name, phone_number, pin_hash) 
+     VALUES ($1, $2, $3) 
+     RETURNING id, display_name, phone_number, avatar, is_private, created_at`,
+    [displayName, phoneNumber, pinHash]
   );
 
   const user = newUser.rows[0];
   const transformedUser = {
     id: user.id,
-    username: user.username,
     displayName: user.display_name,
     avatar: user.avatar,
     isPrivate: user.is_private,
@@ -90,30 +76,13 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  console.log('Login attempt:', { name: req.body.name, pinLength: req.body.pin?.length });
-  
-  const { name, pin } = req.body;
+  const { name: displayName, pin } = req.body;
 
-  if (!name || !pin) {
-    throw new ApiError('Name and PIN are required', STATUS.BAD_REQUEST);
-  }
-
-  let userResult;
-  try {
-    // Find user by display name, username, or name (for login flexibility)
-    userResult = await db.query(
-      'SELECT * FROM users WHERE display_name = $1 OR username = $1 OR name = $1',
-      [name]
-    );
-
-    console.log('User query result:', { found: userResult.rows.length });
-  } catch (dbError: any) {
-    console.error('Database error in login:', dbError);
-    if (dbError.message.includes('relation "users" does not exist')) {
-      throw new ApiError('Database not initialized. Please run migrations.', STATUS.INTERNAL_SERVER);
-    }
-    throw new ApiError('Database connection failed', STATUS.INTERNAL_SERVER);
-  }
+  // Find user by display name
+  const userResult = await db.query(
+    'SELECT * FROM users WHERE display_name = $1',
+    [displayName]
+  );
 
   if (userResult.rows.length === 0) {
     throw new ApiError('Invalid credentials', STATUS.UNAUTHORIZED);
@@ -148,12 +117,12 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 export const requestResetCode = async (req: Request, res: Response) => {
   try {
-    const { name } = req.body;
+    const { name: displayName } = req.body;
 
     // Find user
     const userResult = await db.query(
       'SELECT * FROM users WHERE display_name = $1',
-      [name]
+      [displayName]
     );
 
     if (userResult.rows.length === 0) {
@@ -184,12 +153,12 @@ export const requestResetCode = async (req: Request, res: Response) => {
 
 export const resetPin = async (req: Request, res: Response) => {
   try {
-    const { name, code, newPin } = req.body;
+    const { name: displayName, code, newPin } = req.body;
 
     // Find user
     const userResult = await db.query(
       'SELECT * FROM users WHERE display_name = $1',
-      [name]
+      [displayName]
     );
 
     if (userResult.rows.length === 0) {
@@ -230,7 +199,7 @@ export const validateToken = asyncHandler(async (req: Request, res: Response) =>
 
   // Fetch full user data from database
   const userResult = await db.query(
-    'SELECT id, name, phone_number, avatar, is_private, created_at FROM users WHERE id = $1',
+    'SELECT id, display_name, phone_number, avatar, is_private, created_at FROM users WHERE id = $1',
     [tokenUser.id]
   );
 
@@ -241,9 +210,10 @@ export const validateToken = asyncHandler(async (req: Request, res: Response) =>
   const user = userResult.rows[0];
   
   // Transform field names for frontend
-  const { phone_number, ...userData } = user;
+  const { phone_number, display_name, ...userData } = user;
   const transformedUser = {
     ...userData,
+    displayName: display_name,
     phoneNumber: phone_number // Transform snake_case to camelCase
   };
 

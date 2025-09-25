@@ -6,12 +6,11 @@ import { AuthRequest } from '../middleware/auth';
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
   try {
     const result = await db.query(
-      'SELECT id, username, display_name, phone_number, avatar, is_private, created_at FROM users'
+      'SELECT id, display_name, phone_number, avatar, is_private, created_at FROM users'
     );
     // Transform field names for frontend
     const transformedUsers = result.rows.map((user: any) => ({
       id: user.id,
-      username: user.username,
       displayName: user.display_name,
       avatar: user.avatar,
       isPrivate: user.is_private,
@@ -40,7 +39,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
            is_private = COALESCE($4, is_private),
            updated_at = NOW()
        WHERE id = $5
-       RETURNING id, username, display_name, phone_number, avatar, is_private, created_at, updated_at`,
+       RETURNING id, display_name, phone_number, avatar, is_private, created_at, updated_at`,
       [displayName, phoneNumber, avatar, isPrivate, userId]
     );
 
@@ -52,7 +51,6 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     // Transform field names for frontend
     const transformedUser = {
       id: user.id,
-      username: user.username,
       displayName: user.display_name,
       avatar: user.avatar,
       isPrivate: user.is_private,
@@ -115,7 +113,7 @@ export const searchUserByDisplayName = async (req: AuthRequest, res: Response) =
     }
 
     const result = await db.query(
-      'SELECT id, username, display_name, phone_number, avatar, is_private, created_at FROM users WHERE display_name = $1 OR username = $1 OR name = $1',
+      'SELECT id, display_name, phone_number, avatar, is_private, created_at FROM users WHERE display_name = $1',
       [name]
     );
 
@@ -126,7 +124,6 @@ export const searchUserByDisplayName = async (req: AuthRequest, res: Response) =
     const user = result.rows[0];
     const transformedUser = {
       id: user.id,
-      username: user.username,
       displayName: user.display_name,
       avatar: user.avatar,
       isPrivate: user.is_private,

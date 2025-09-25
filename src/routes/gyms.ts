@@ -61,8 +61,14 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     const { name } = req.body;
     
+    console.log('Creating gym with userId:', userId, 'name:', name);
+    
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Gym name is required' });
+    }
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID not found in token' });
     }
     
     const gymResult = await db.query(
@@ -71,6 +77,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     );
     
     const gym = gymResult.rows[0];
+    console.log('Gym created:', gym);
     
     // Grant access to the creator
     await db.query(
@@ -78,15 +85,23 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       [userId, gym.id]
     );
     
-    res.status(201).json({
+    const response = {
       id: gym.id,
       name: gym.name,
       isSystemGym: gym.is_system_gym,
       branches: []
-    });
-  } catch (error) {
+    };
+    
+    console.log('Sending gym response:', response);
+    res.status(201).json(response);
+  } catch (error: any) {
     console.error('Error creating gym:', error);
-    res.status(500).json({ error: 'Failed to create gym' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ error: 'Failed to create gym', details: error.message });
   }
 });
 
