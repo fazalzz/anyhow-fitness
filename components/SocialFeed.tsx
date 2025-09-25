@@ -90,7 +90,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onStartWorkout }) => {
   const visiblePosts = posts.filter(post => {
       if (post.userId === currentUser?.id) return true;
       const author = users.find(u => u.id === post.userId);
-      return author && !author.is_private;
+      return author && !author.isPrivate;
   });
 
   return (

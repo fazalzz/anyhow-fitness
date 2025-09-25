@@ -23,15 +23,6 @@ const EditWorkoutModal: React.FC<{
         onSave(editedWorkout);
     };
 
-    const handleExerciseChange = (exerciseIndex: number, field: string, value: any) => {
-        setEditedWorkout(prev => ({
-            ...prev,
-            exercises: prev.exercises.map((ex, index) => 
-                index === exerciseIndex ? { ...ex, [field]: value } : ex
-            )
-        }));
-    };
-
     const handleSetChange = (exerciseIndex: number, setIndex: number, field: string, value: any) => {
         setEditedWorkout(prev => ({
             ...prev,

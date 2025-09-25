@@ -1,10 +1,10 @@
 import { FrontendUser as User, Exercise } from './types';
 
 export const INITIAL_USERS: User[] = [
-  { id: 'user1', name: 'Alex', avatar: 'https://i.pravatar.cc/150?u=user1', pin: '12345678', phoneNumber: '91234567', is_private: false },
-  { id: 'user2', name: 'Ben', avatar: 'https://i.pravatar.cc/150?u=user2', pin: '12345678', phoneNumber: '92345678', is_private: false },
-  { id: 'user3', name: 'Casey', avatar: 'https://i.pravatar.cc/150?u=user3', pin: '12345678', phoneNumber: '93456789', is_private: false },
-  { id: 'user4', name: 'Dana', avatar: 'https://i.pravatar.cc/150?u=user4', pin: '12345678', phoneNumber: '94567890', is_private: false },
+  { id: 'user1', username: 'alex', displayName: 'Alex', avatar: 'https://i.pravatar.cc/150?u=user1', pin: '12345678', phoneNumber: '91234567', isPrivate: false },
+  { id: 'user2', username: 'ben', displayName: 'Ben', avatar: 'https://i.pravatar.cc/150?u=user2', pin: '12345678', phoneNumber: '92345678', isPrivate: false },
+  { id: 'user3', username: 'casey', displayName: 'Casey', avatar: 'https://i.pravatar.cc/150?u=user3', pin: '12345678', phoneNumber: '93456789', isPrivate: false },
+  { id: 'user4', username: 'dana', displayName: 'Dana', avatar: 'https://i.pravatar.cc/150?u=user4', pin: '12345678', phoneNumber: '94567890', isPrivate: false },
 ];
 
 export const GYMS: string[] = [

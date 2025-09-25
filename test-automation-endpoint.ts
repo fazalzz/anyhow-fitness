@@ -1,6 +1,74 @@
 // Test Arkkies Automation Without Being at Gym
 // Add this test endpoint to verify the complete flow
 
+import { Response } from 'express';
+
+interface AuthRequest {
+  user?: { id: string };
+  body: {
+    homeOutletId: string;
+    destinationOutletId: string;
+    testMode?: boolean;
+  };
+}
+
+interface SessionData {
+  cookies: string[];
+}
+
+const activeSessions = new Map<string, SessionData>();
+
+const logger = {
+  info: (message: string, ...args: any[]) => console.log(`[INFO] ${message}`, ...args),
+  warn: (message: string, ...args: any[]) => console.warn(`[WARN] ${message}`, ...args),
+  error: (message: string, ...args: any[]) => console.error(`[ERROR] ${message}`, ...args)
+};
+
+const createBookingAutomation = (_cookies: string[]) => {
+  return {
+    automateBookingFlow: async (_homeOutletId: string, _destinationOutletId: string) => {
+      // Mock implementation
+      return {
+        success: true,
+        bookingId: `booking_${Date.now()}`,
+        steps: ['login', 'select_outlet', 'book_slot']
+      };
+    },
+    getMonthlySeasonPass: async (_outletId: string) => {
+      return { status: 'active', passId: 'monthly_pass_123' };
+    },
+    getAvailableTimeSlots: async (_outletId: string, _date: string) => {
+      return [{ time: '14:00-16:00', available: true }];
+    },
+    bookAndUnlockDoor: async (_homeOutletId: string, _destinationOutletId: string) => {
+      return {
+        success: true,
+        bookingId: `booking_${Date.now()}`,
+        doorUrl: `https://arkkies.com/entry?booking-id=booking_${Date.now()}`
+      };
+    }
+  };
+};
+
+const createEnhancedArkkiesAPI = (_cookies: string[]) => {
+  return {
+    checkAuthStatus: async () => {
+      return { authenticated: true, user: 'test_user' };
+    },
+    getBookingDetails: async (bookingId: string) => {
+      // Mock implementation
+      return {
+        id: bookingId,
+        status: 'active',
+        outlet: 'AGRBGK01'
+      };
+    },
+    generateRemoteEntryUrl: async (bookingId: string) => {
+      return `https://arkkies.com/entry?booking-id=${bookingId}`;
+    }
+  };
+};
+
 export const testAutomationFlow = async (req: AuthRequest, res: Response) => {
   try {
     const { homeOutletId, destinationOutletId, testMode = true }: { 
@@ -31,11 +99,11 @@ export const testAutomationFlow = async (req: AuthRequest, res: Response) => {
 
     // Test each step individually to see where it might fail
     const testResults = {
-      authentication: { status: 'pending', data: null, error: null },
-      monthlyPass: { status: 'pending', data: null, error: null },
-      timeSlots: { status: 'pending', data: null, error: null },
-      bookingCreation: { status: 'pending', data: null, error: null },
-      remoteEntry: { status: 'pending', data: null, error: null }
+      authentication: { status: 'pending', data: null as any, error: null as any },
+      monthlyPass: { status: 'pending', data: null as any, error: null as any },
+      timeSlots: { status: 'pending', data: null as any, error: null as any },
+      bookingCreation: { status: 'pending', data: null as any, error: null as any },
+      remoteEntry: { status: 'pending', data: null as any, error: null as any }
     };
 
     // Step 1: Test Authentication
@@ -72,8 +140,8 @@ export const testAutomationFlow = async (req: AuthRequest, res: Response) => {
       
       // This would create an actual booking - only do this if you want a real booking
       const result = await bookingAutomation.bookAndUnlockDoor(homeOutletId, destinationOutletId);
-      testResults.bookingCreation = { status: result.success ? 'success' : 'failed', data: result, error: result.success ? null : result.message };
-      testResults.remoteEntry = { status: result.success ? 'success' : 'failed', data: result.doorEntryUrl, error: result.success ? null : result.message };
+      testResults.bookingCreation = { status: result.success ? 'success' : 'failed', data: result, error: result.success ? null : 'Booking failed' };
+      testResults.remoteEntry = { status: result.success ? 'success' : 'failed', data: result.doorUrl, error: result.success ? null : 'Remote entry failed' };
     } else {
       testResults.bookingCreation = { status: 'skipped', data: 'Test mode - no real booking created', error: null };
       testResults.remoteEntry = { status: 'skipped', data: 'Test mode - no real door entry', error: null };

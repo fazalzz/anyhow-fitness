@@ -35,7 +35,7 @@ const PostWorkoutModal: React.FC<PostWorkoutModalProps> = ({ onClose, workoutId 
         const newPost: Post = {
             id: Date.now().toString(),
             userId: currentUser.id,
-            userName: currentUser.name,
+            userName: currentUser.displayName,
             userAvatar: currentUser.avatar || '',
             date: new Date().toISOString(),
             imageUrl: image,

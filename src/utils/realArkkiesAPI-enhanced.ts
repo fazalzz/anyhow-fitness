@@ -254,10 +254,11 @@ export class EnhancedRealArkkiesAPI {
       // Step 2: Find active booking if not provided
       let targetBookingId = bookingId;
       if (!targetBookingId) {
-        targetBookingId = await this.findActiveBooking(outletId);
-        if (!targetBookingId) {
+        const foundBookingId = await this.findActiveBooking(outletId);
+        if (!foundBookingId) {
           throw new Error('No active booking found for this outlet');
         }
+        targetBookingId = foundBookingId;
       }
 
       // Step 3: Get booking details

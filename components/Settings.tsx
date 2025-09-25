@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { BackButton } from './common';
 
-const AccountSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const AccountSettings: React.FC<{ onBack: () => void }> = () => {
     const { currentUser, updateUser, changePin, loading } = useAuth();
     const [newDisplayName, setNewDisplayName] = useState('');
     const [newPhoneNumber, setNewPhoneNumber] = useState('');
