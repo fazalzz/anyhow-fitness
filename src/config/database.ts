@@ -3,10 +3,11 @@ import { logger } from '../utils/logger';
 
 // Configure SSL for production Supabase connection
 const getSslConfig = () => {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' || process.env.DATABASE_URL?.includes('supabase.co')) {
     // For Supabase, we need to explicitly handle SSL with proper configuration
     return {
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      require: true
     };
   }
   return false; // No SSL for local development
@@ -21,7 +22,7 @@ interface DatabaseConfig {
   database?: string;
   user?: string;
   password?: string;
-  ssl?: boolean | { rejectUnauthorized: boolean };
+  ssl?: boolean | { rejectUnauthorized: boolean; require?: boolean };
 }
 
 class Database {
@@ -62,7 +63,7 @@ class Database {
   public static getInstance(): Database {
     if (!Database.instance) {
       const config: DatabaseConfig = {
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        ssl: getSslConfig()
       };
       
       if (process.env.DATABASE_URL) {
