@@ -8,6 +8,8 @@ primary_region = "sin"
 [env]
   NODE_ENV = "production"
   JWT_SECRET = "AnyhowFitness-SuperSecret-ChangeThis-InProduction-2024!"
+  PORT = "4000"
+  DATABASE_URL = "postgresql://postgres:QSNFuKyM4g6lqLkx@db.gcurjrbuazviasegjcgi.supabase.co:5432/postgres?sslmode=require"
 
 [http_service]
   internal_port = 4000

@@ -12,6 +12,16 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["**/*.ts", "../migrations/**/*.ts", "../types.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "index.ts",
+    "config/**/*.ts",
+    "controllers/**/*.ts", 
+    "middleware/**/*.ts",
+    "routes/**/*.ts",
+    "types/**/*.ts",
+    "utils/**/*.ts",
+    "../migrations/**/*.ts",
+    "../types.ts"
+  ],
+  "exclude": ["node_modules", "dist", "apiClient.ts", "loadEnv.ts"]
 }
