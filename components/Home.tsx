@@ -1,13 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { DumbbellIcon, ChartIcon, WeightIcon, SettingsIcon, HomeIcon } from './icons';
+import { useWorkout } from '../context/WorkoutContext';
+import { DumbbellIcon, ChartIcon, WeightIcon, SettingsIcon } from './icons';
 
 interface HomeProps {
   onNavigate: (view: string) => void;
 }
 
+interface CalendarDay {
+  date: Date;
+  workoutCount: number;
+  isToday: boolean;
+  isCurrentMonth: boolean;
+}
+
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const { currentUser } = useAuth();
+  const { workouts } = useWorkout();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
 
   const shortcuts = [
     {
@@ -15,7 +26,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       title: 'Start Workout',
       description: 'Begin your fitness session',
       icon: DumbbellIcon,
-      color: 'bg-blue-500',
       view: 'GYM_ACCESS'
     },
     {
@@ -23,7 +33,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       title: 'View Stats',
       description: 'Check your progress',
       icon: ChartIcon,
-      color: 'bg-green-500',
       view: 'STATS'
     },
     {
@@ -31,7 +40,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       title: 'Track Weight',
       description: 'Log your bodyweight',
       icon: WeightIcon,
-      color: 'bg-purple-500',
       view: 'BODYWEIGHT'
     },
     {
@@ -39,45 +47,83 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       title: 'Settings',
       description: 'Manage your account',
       icon: SettingsIcon,
-      color: 'bg-gray-500',
       view: 'SETTINGS'
     }
   ];
 
+  // Generate calendar days with workout counts
+  useEffect(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    const days: CalendarDay[] = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 42; i++) { // 6 weeks
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      
+      // Count workouts for this date
+      const workoutCount = workouts.filter(workout => {
+        const workoutDate = new Date(workout.date);
+        return workoutDate.toDateString() === date.toDateString();
+      }).length;
+      
+      days.push({
+        date,
+        workoutCount,
+        isToday: date.toDateString() === today.toDateString(),
+        isCurrentMonth: date.getMonth() === month
+      });
+    }
+    
+    setCalendarDays(days);
+  }, [currentDate, workouts]);
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + (direction === 'next' ? 1 : -1));
+    setCurrentDate(newDate);
+  };
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+    
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 space-y-6 bg-brand-surface min-h-full">
       {/* Welcome Section */}
-      <div className="text-center space-y-2">
-        <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <HomeIcon />
-          </div>
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900">
+      <div className="text-center space-y-3">
+        <h1 className="text-2xl font-bold text-brand-primary">
           Welcome back, {currentUser?.displayName || 'User'}!
         </h1>
-        <p className="text-gray-600">Ready to continue your fitness journey?</p>
+        <p className="text-brand-secondary-text">Ready to continue your fitness journey?</p>
       </div>
 
       {/* Quick Actions Grid */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <h2 className="text-lg font-semibold text-brand-primary">Quick Actions</h2>
+        <div className="grid grid-cols-2 gap-3">
           {shortcuts.map((shortcut) => {
             const IconComponent = shortcut.icon;
             return (
               <button
                 key={shortcut.id}
                 onClick={() => onNavigate(shortcut.view)}
-                className="p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow active:scale-95"
+                className="p-4 bg-brand-bg rounded-lg border border-brand-border hover:bg-brand-surface-alt transition-colors active:scale-95"
               >
                 <div className="flex flex-col items-center space-y-3">
-                  <div className={`w-12 h-12 ${shortcut.color} rounded-lg flex items-center justify-center text-white`}>
+                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white">
                     <IconComponent />
                   </div>
                   <div className="text-center">
-                    <h3 className="font-medium text-gray-900 text-sm">{shortcut.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{shortcut.description}</p>
+                    <h3 className="font-medium text-brand-primary text-sm">{shortcut.title}</h3>
+                    <p className="text-xs text-brand-secondary-text mt-1">{shortcut.description}</p>
                   </div>
                 </div>
               </button>
@@ -86,22 +132,64 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Recent Activity Summary */}
-      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-        <h3 className="font-medium text-gray-900">Today's Summary</h3>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-2xl font-bold text-blue-600">0</p>
-            <p className="text-xs text-gray-600">Workouts</p>
+      {/* Workout Calendar */}
+      <div className="bg-brand-bg rounded-lg p-4 border border-brand-border">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-brand-primary">Workout Calendar</h3>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => navigateMonth('prev')}
+              className="p-1 text-brand-secondary-text hover:text-brand-primary"
+            >
+              ←
+            </button>
+            <span className="text-brand-primary font-medium">
+              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+            </span>
+            <button
+              onClick={() => navigateMonth('next')}
+              className="p-1 text-brand-secondary-text hover:text-brand-primary"
+            >
+              →
+            </button>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-green-600">0</p>
-            <p className="text-xs text-gray-600">Exercises</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-purple-600">-</p>
-            <p className="text-xs text-gray-600">Weight</p>
-          </div>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {/* Day headers */}
+          {dayNames.map(day => (
+            <div key={day} className="text-center text-xs font-medium text-brand-secondary-text p-2">
+              {day}
+            </div>
+          ))}
+          
+          {/* Calendar days */}
+          {calendarDays.map((day, index) => (
+            <div
+              key={index}
+              className={`
+                relative p-2 text-center text-sm rounded
+                ${day.isCurrentMonth ? 'text-brand-primary' : 'text-brand-secondary-text opacity-50'}
+                ${day.isToday ? 'bg-blue-600 text-white font-bold' : ''}
+                ${day.workoutCount > 0 && !day.isToday ? 'bg-brand-surface-alt' : ''}
+              `}
+            >
+              <span>{day.date.getDate()}</span>
+              {day.workoutCount > 0 && (
+                <div className={`
+                  absolute -top-1 -right-1 w-4 h-4 rounded-full text-xs flex items-center justify-center
+                  ${day.isToday ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}
+                `}>
+                  {day.workoutCount}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 text-xs text-brand-secondary-text text-center">
+          Numbers show workout count for each day
         </div>
       </div>
     </div>

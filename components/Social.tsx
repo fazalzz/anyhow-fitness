@@ -92,28 +92,32 @@ export const Social: React.FC<SocialProps> = ({ onNavigate: _ }) => {
   const renderFeed = () => (
     <div className="space-y-4">
       <div className="text-center py-8">
-        <UsersIcon />
-        <h3 className="text-lg font-medium text-gray-900 mt-2">Social Feed</h3>
-        <p className="text-gray-600 mt-1">Connect with friends to see their workouts</p>
+        <div className="flex justify-center mb-4">
+          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
+            <UsersIcon />
+          </div>
+        </div>
+        <h3 className="text-lg font-medium text-brand-primary mt-2">Social Feed</h3>
+        <p className="text-brand-secondary-text mt-1">Connect with friends to see their workouts</p>
       </div>
       
       {posts.length === 0 ? (
-        <div className="bg-gray-50 rounded-lg p-6 text-center">
-          <p className="text-gray-600">No posts yet. Start following friends to see their activity!</p>
+        <div className="bg-brand-bg rounded-lg p-6 text-center border border-brand-border">
+          <p className="text-brand-secondary-text">No posts yet. Start following friends to see their activity!</p>
         </div>
       ) : (
         posts.map((post, index) => (
-          <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div key={index} className="bg-brand-bg rounded-lg border border-brand-border p-4">
             <div className="flex items-center space-x-3 mb-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                 {post.user?.displayName?.[0] || 'U'}
               </div>
               <div>
-                <p className="font-medium text-gray-900">{post.user?.displayName || 'User'}</p>
-                <p className="text-sm text-gray-500">{new Date(post.created_at).toLocaleDateString()}</p>
+                <p className="font-medium text-brand-primary">{post.user?.displayName || 'User'}</p>
+                <p className="text-sm text-brand-secondary-text">{new Date(post.created_at).toLocaleDateString()}</p>
               </div>
             </div>
-            <p className="text-gray-800">{post.content}</p>
+            <p className="text-brand-secondary">{post.content}</p>
           </div>
         ))
       )}
@@ -123,10 +127,10 @@ export const Social: React.FC<SocialProps> = ({ onNavigate: _ }) => {
   const renderFriends = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900">Friends</h3>
+        <h3 className="text-lg font-medium text-brand-primary">Friends</h3>
         <button
           onClick={() => setActiveTab('search')}
-          className="flex items-center space-x-2 px-3 py-1 bg-blue-500 text-white rounded-lg text-sm"
+          className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
         >
           <UserPlusIcon />
           <span>Add Friends</span>
@@ -134,17 +138,19 @@ export const Social: React.FC<SocialProps> = ({ onNavigate: _ }) => {
       </div>
 
       {friendRequests.length > 0 && (
-        <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-2">Friend Requests</h4>
+        <div className="bg-brand-bg rounded-lg p-4 border border-brand-border">
+          <h4 className="font-medium text-brand-primary mb-2">Friend Requests</h4>
           {friendRequests.map((request, index) => (
             <div key={index} className="flex items-center justify-between py-2">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                <span className="font-medium">{request.from_user?.displayName}</span>
+                <div className="w-8 h-8 bg-brand-surface-alt rounded-full flex items-center justify-center text-brand-primary">
+                  {request.from_user?.displayName?.[0] || 'U'}
+                </div>
+                <span className="font-medium text-brand-primary">{request.from_user?.displayName}</span>
               </div>
               <div className="space-x-2">
-                <button className="px-3 py-1 bg-green-500 text-white rounded text-sm">Accept</button>
-                <button className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm">Decline</button>
+                <button className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors">Accept</button>
+                <button className="px-3 py-1 bg-brand-surface-alt text-brand-secondary-text rounded text-sm hover:bg-brand-border transition-colors">Decline</button>
               </div>
             </div>
           ))}
@@ -152,22 +158,26 @@ export const Social: React.FC<SocialProps> = ({ onNavigate: _ }) => {
       )}
 
       {friends.length === 0 ? (
-        <div className="bg-gray-50 rounded-lg p-6 text-center">
-          <UsersIcon />
-          <p className="text-gray-600 mt-2">No friends yet. Search for users to connect with!</p>
+        <div className="bg-brand-bg rounded-lg p-6 text-center border border-brand-border">
+          <div className="flex justify-center mb-3">
+            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+              <UsersIcon />
+            </div>
+          </div>
+          <p className="text-brand-secondary-text">No friends yet. Search for users to connect with!</p>
         </div>
       ) : (
         <div className="space-y-2">
           {friends.map((friend, index) => (
-            <div key={index} className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+            <div key={index} className="flex items-center space-x-3 p-3 bg-brand-bg rounded-lg border border-brand-border">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
                 {friend.displayName[0]}
               </div>
               <div className="flex-1">
-                <p className="font-medium text-gray-900">{friend.displayName}</p>
-                <p className="text-sm text-gray-500">@{friend.username}</p>
+                <p className="font-medium text-brand-primary">{friend.displayName}</p>
+                <p className="text-sm text-brand-secondary-text">@{friend.username}</p>
               </div>
-              <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm">
+              <button className="px-3 py-1 bg-brand-surface-alt text-brand-secondary-text rounded text-sm hover:bg-brand-border transition-colors">
                 View Profile
               </button>
             </div>
@@ -180,42 +190,41 @@ export const Social: React.FC<SocialProps> = ({ onNavigate: _ }) => {
   const renderSearch = () => (
     <div className="space-y-4">
       <div className="relative">
-        <SearchIcon />
         <input
           type="text"
           placeholder="Search for users..."
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full pl-10 pr-4 py-3 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-brand-primary placeholder-brand-secondary-text"
         />
-        <div className="absolute left-3 top-2.5 text-gray-400">
+        <div className="absolute left-3 top-3.5 text-brand-secondary-text">
           <SearchIcon />
         </div>
       </div>
 
       {loading && (
         <div className="text-center py-4">
-          <p className="text-gray-600">Searching...</p>
+          <p className="text-brand-secondary-text">Searching...</p>
         </div>
       )}
 
       {searchResults.length === 0 && searchQuery && !loading && (
         <div className="text-center py-8">
-          <p className="text-gray-600">No users found matching "{searchQuery}"</p>
+          <p className="text-brand-secondary-text">No users found matching "{searchQuery}"</p>
         </div>
       )}
 
       <div className="space-y-2">
         {searchResults.map((user) => (
-          <div key={user.id} className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+          <div key={user.id} className="flex items-center space-x-3 p-3 bg-brand-bg rounded-lg border border-brand-border">
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
               {user.displayName[0]}
             </div>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">{user.displayName}</p>
-              <p className="text-sm text-gray-500">@{user.username}</p>
+              <p className="font-medium text-brand-primary">{user.displayName}</p>
+              <p className="text-sm text-brand-secondary-text">@{user.username}</p>
             </div>
-            <button className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+            <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
               Add Friend
             </button>
           </div>
@@ -231,19 +240,19 @@ export const Social: React.FC<SocialProps> = ({ onNavigate: _ }) => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 space-y-6 bg-brand-surface min-h-full">
       {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+      <div className="flex space-x-1 bg-brand-bg rounded-lg p-1 border border-brand-border">
         {tabs.map((tab) => {
           const IconComponent = tab.icon;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-3 rounded-md text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-brand-secondary-text hover:text-brand-primary'
               }`}
             >
               <IconComponent />
