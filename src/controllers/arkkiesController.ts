@@ -87,10 +87,15 @@ const checkExistingSession = async (req: AuthRequest, res: Response) => {
 };
 
 export const loginToArkkies = async (req: AuthRequest, res: Response) => {
+  console.log('loginToArkkies function called');
+  console.log('Request body:', req.body);
+  console.log('User:', req.user);
+  
   try {
     const { email, password, testMode } = req.body;
 
     if (!email || !password) {
+      console.log('Missing email or password');
       return res.status(400).json({
         success: false,
         error: 'Email and password are required'

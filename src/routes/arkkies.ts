@@ -10,8 +10,19 @@ router.use(authenticateToken);
 // Check existing session status
 router.get('/session-status', arkkiesController.getSessionStatus);
 
+// Test endpoint
+router.post('/test', (req, res) => {
+  console.log('Arkkies test route hit');
+  res.json({ success: true, message: 'Test route working' });
+});
+
 // Login to Arkkies
-router.post('/login', arkkiesController.loginToArkkies);
+router.post('/login', (req, res, next) => {
+  console.log('Arkkies login route hit:', req.method, req.path);
+  console.log('Request body:', req.body);
+  console.log('Auth header:', req.headers.authorization);
+  next();
+}, arkkiesController.loginToArkkies);
 
 // Get available outlets
 router.get('/outlets', arkkiesController.getOutlets);
