@@ -345,6 +345,70 @@ export const apiDeleteBodyWeightEntry = async (
   );
 };
 
+// Arkkies API methods
+export const apiArkkiesLogin = async (credentials: { email: string; password: string }): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/login',
+    createRequestOptions('POST', credentials)
+  );
+};
+
+export const apiArkkiesSessionStatus = async (): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/session-status',
+    createRequestOptions('GET')
+  );
+};
+
+export const apiArkkiesOutlets = async (): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/outlets',
+    createRequestOptions('GET')
+  );
+};
+
+export const apiArkkiesBookSession = async (bookingData: any): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/book',
+    createRequestOptions('POST', bookingData)
+  );
+};
+
+export const apiArkkiesLogout = async (): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/logout',
+    createRequestOptions('POST')
+  );
+};
+
+export const apiArkkiesBookAndAccess = async (bookingData: any): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/book-and-access',
+    createRequestOptions('POST', bookingData)
+  );
+};
+
+export const apiArkkiesTestRealApi = async (): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/test-real-api',
+    createRequestOptions('POST')
+  );
+};
+
+export const apiArkkiesTestEnhancedApi = async (data: any): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/test-enhanced-api',
+    createRequestOptions('POST', data)
+  );
+};
+
+export const apiArkkiesAutomatedBooking = async (bookingData: any): Promise<ApiResponse<any>> => {
+  return apiRequest<any>(
+    '/arkkies/automated-booking',
+    createRequestOptions('POST', bookingData)
+  );
+};
+
 // Create an axios-like API object for compatibility with gym routes
 export const api = {
   get: async (url: string) => {

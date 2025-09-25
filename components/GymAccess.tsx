@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { BackButton } from './common';
 import { useAuth } from '../context/AuthContext';
+import { 
+  apiArkkiesLogin, 
+  apiArkkiesSessionStatus, 
+  apiArkkiesOutlets,
+  apiArkkiesBookAndAccess,
+  apiArkkiesTestRealApi,
+  apiArkkiesTestEnhancedApi,
+  apiArkkiesAutomatedBooking
+} from '../apiClient';
 
 interface ArkkiesCredentials {
   email: string;
@@ -82,32 +91,19 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   useEffect(() => {
     const checkExistingSession = async () => {
       try {
-        const response = await fetch('/api/arkkies/session-status', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await apiArkkiesSessionStatus();
         
-        const data = await response.json();
-        
-        if (data.success && data.data) {
+        if (response.success && response.data) {
           setIsLoggedIn(true);
-          setSessionInfo(data.data);
+          setSessionInfo(response.data);
           setCurrentStep(2); // Skip login step
-          setSuccess(`Already logged in to Arkkies! (Since ${new Date(data.data.loginTime).toLocaleTimeString()})`);
+          setSuccess(`Already logged in to Arkkies! (Since ${new Date(response.data.loginTime).toLocaleTimeString()})`);
           
           // Load outlets from API
           try {
-            const outletsResponse = await fetch('/api/arkkies/outlets', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }  
-            });
-            const outletsData = await outletsResponse.json();
-            if (outletsData.success && outletsData.data) {
-              setOutlets(outletsData.data);
+            const outletsResponse = await apiArkkiesOutlets();
+            if (outletsResponse.success && outletsResponse.data) {
+              setOutlets(outletsResponse.data);
             }
           } catch (err) {
             console.error('Failed to load outlets:', err);
@@ -129,40 +125,25 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/arkkies/login', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(credentials)
-      });
-
-      const data = await response.json();
+      const response = await apiArkkiesLogin(credentials);
       
-      if (data.success) {
+      if (response.success) {
         setIsLoggedIn(true);
-        setSessionInfo(data.data);
+        setSessionInfo(response.data);
         setSuccess('Successfully logged into Arkkies! Session will persist.');
         setCurrentStep(2);
         
         // Load outlets from API
         try {
-          const outletsResponse = await fetch('/api/arkkies/outlets', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          const outletsData = await outletsResponse.json();
-          if (outletsData.success && outletsData.data) {
-            setOutlets(outletsData.data);
+          const outletsResponse = await apiArkkiesOutlets();
+          if (outletsResponse.success && outletsResponse.data) {
+            setOutlets(outletsResponse.data);
           }
         } catch (err) {
           console.error('Failed to load outlets:', err);
         }
       } else {
-        setError(data.error || 'Failed to login to Arkkies. Please check your credentials.');
+        setError(response.error || 'Failed to login to Arkkies. Please check your credentials.');
       }
     } catch (err: any) {
       setError('Failed to connect to Arkkies. Please try again.');
@@ -185,26 +166,17 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/arkkies/book-and-access', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          homeOutletId: homeOutlet,
-          targetOutletId: targetOutlet,
-          selectedDoor: selectedDoor || 'Main Entrance'
-        })
+      const response = await apiArkkiesBookAndAccess({
+        homeOutletId: homeOutlet,
+        targetOutletId: targetOutlet,
+        selectedDoor: selectedDoor || 'Main Entrance'
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setSuccess(`Successfully opened ${data.data.door} at ${data.data.outlet}! Enjoy your workout! 💪`);
+      if (response.success) {
+        setSuccess(`Successfully opened ${response.data.door} at ${response.data.outlet}! Enjoy your workout! 💪`);
         setCurrentStep(4);
       } else {
-        setError(data.error || 'Failed to access gym. Please try again.');
+        setError(response.error || 'Failed to access gym. Please try again.');
       }
     } catch (err: any) {
       setError('Failed to connect to gym access system. Please try again.');
@@ -221,20 +193,13 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/arkkies/test-real-api', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
+      const response = await apiArkkiesTestRealApi();
       
-      if (data.success) {
+      if (response.success) {
         setSuccess('✅ Real API test successful! Your session can access real Arkkies endpoints.');
-        console.log('Real API test results:', data.data);
+        console.log('Real API test results:', response.data);
       } else {
-        setError(`❌ Real API test failed: ${data.error}`);
+        setError(`❌ Real API test failed: ${response.error}`);
       }
     } catch (err: any) {
       setError('❌ Failed to test real API connection.');
@@ -251,25 +216,16 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/arkkies/test-enhanced-api', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          outletId: targetOutlet || 'AGRBGK01' // Use selected outlet or default
-        })
+      const response = await apiArkkiesTestEnhancedApi({ 
+        outletId: targetOutlet || 'AGRBGK01' // Use selected outlet or default
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        const { doorAccess, activeBooking, userBookings } = data.data;
+      if (response.success) {
+        const { doorAccess, activeBooking, userBookings } = response.data;
         
         if (doorAccess) {
           setSuccess(`🚀 Enhanced API test successful! Found active booking: ${activeBooking}. Door access ready!`);
-          console.log('Enhanced API results:', data.data);
+          console.log('Enhanced API results:', response.data);
           
           // If we got door access, show the URL
           if (doorAccess.doorEntryUrl) {
@@ -282,7 +238,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }
         
       } else {
-        setError(`❌ Enhanced API test failed: ${data.error}`);
+        setError(`❌ Enhanced API test failed: ${response.error}`);
       }
     } catch (err: any) {
       setError('❌ Failed to test enhanced API connection.');
@@ -304,41 +260,34 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     try {
       console.log('🚀 Starting automated booking...', { homeOutlet, targetOutlet });
       
-      const response = await fetch('/api/arkkies/automated-booking', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          homeOutlet,
-          destinationOutlet: targetOutlet,
-          sessionCookie: sessionInfo?.sessionCookie || 'mock_session'
-        })
+      const response = await apiArkkiesAutomatedBooking({
+        homeOutlet,
+        destinationOutlet: targetOutlet,
+        sessionCookie: sessionInfo?.sessionCookie || 'mock_session'
       });
 
-      const data = await response.json();
-      console.log('Automated booking response:', data);
+      console.log('Automated booking response:', response);
       
-      if (data.success) {
-        setSuccess(`🎉 ${data.message}\n\n🚪 Door Entry URL: ${data.doorAccess?.url}\n\n⏰ Auto-opening in 3 seconds...`);
+      if (response.success) {
+        setSuccess(`🎉 ${response.data.message}\n\n🚪 Door Entry URL: ${response.data.doorAccess?.url}\n\n⏰ Auto-opening in 3 seconds...`);
         
         // Show booking details
-        console.log('Booking Details:', data.booking);
-        console.log('Door Access:', data.doorAccess);
-        console.log('Automation Steps:', data.automation);
+        console.log('Booking Details:', response.data.booking);
+        console.log('Door Access:', response.data.doorAccess);
+        console.log('Automation Steps:', response.data.automation);
         
         // Auto-open door URL after 3 seconds
-        if (data.doorAccess?.url) {
+        if (response.data.doorAccess?.url) {
           setTimeout(() => {
-            console.log('🚪 Opening door access URL:', data.doorAccess.url);
-            window.open(data.doorAccess.url, '_blank');
+            console.log('🚪 Opening door access URL:', response.data.doorAccess.url);
+            window.open(response.data.doorAccess.url, '_blank');
           }, 3000);
         }
         
         // Move to success step
         setCurrentStep(4);
       } else {
-        setError(`❌ Automated booking failed: ${data.error}`);
+        setError(`❌ Automated booking failed: ${response.error}`);
       }
     } catch (err: any) {
       setError('❌ Failed to execute automated booking and unlock.');
