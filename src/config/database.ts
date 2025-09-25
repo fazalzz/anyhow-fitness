@@ -3,14 +3,13 @@ import { logger } from '../utils/logger';
 
 // Configure SSL for production Supabase connection
 const getSslConfig = () => {
-  if (process.env.NODE_ENV === 'production' || process.env.DATABASE_URL?.includes('supabase.co')) {
-    // For Supabase, we need to explicitly handle SSL with proper configuration
+  // Always require SSL for Supabase connections, whether local or production
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase.co')) {
     return {
-      rejectUnauthorized: false,
-      require: true
+      rejectUnauthorized: false
     };
   }
-  return false; // No SSL for local development
+  return false; // No SSL for other databases
 };
 
 // Simple pool configuration removed - using Database class singleton below
@@ -22,7 +21,7 @@ interface DatabaseConfig {
   database?: string;
   user?: string;
   password?: string;
-  ssl?: boolean | { rejectUnauthorized: boolean; require?: boolean };
+  ssl?: boolean | { rejectUnauthorized: boolean };
 }
 
 class Database {
@@ -62,13 +61,12 @@ class Database {
 
   public static getInstance(): Database {
     if (!Database.instance) {
-      const config: DatabaseConfig = {
-        ssl: getSslConfig()
-      };
+      const config: DatabaseConfig = {};
       
       if (process.env.DATABASE_URL) {
         // Use the connection string as-is for Supabase
         config.connectionString = process.env.DATABASE_URL;
+        config.ssl = getSslConfig();
       } else {
         config.host = process.env.DB_HOST;
         config.port = parseInt(process.env.DB_PORT || '5432', 10);
