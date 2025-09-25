@@ -18,7 +18,16 @@ export const getUserBodyWeightEntries = async (req: AuthRequest, res: Response) 
       [targetUserId]
     );
 
-    res.json(result.rows);
+    // Transform field names for frontend
+    const transformedEntries = result.rows.map((entry: any) => ({
+      id: entry.id,
+      userId: entry.user_id,
+      weight: parseFloat(entry.weight),
+      date: entry.date,
+      createdAt: entry.created_at
+    }));
+
+    res.json(transformedEntries);
   } catch (error) {
     console.error('Get body weight entries error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -36,7 +45,17 @@ export const createBodyWeightEntry = async (req: AuthRequest, res: Response) => 
       [userId, weight, date || new Date()]
     );
 
-    res.status(201).json(result.rows[0]);
+    // Transform field names for frontend
+    const entry = result.rows[0];
+    const transformedEntry = {
+      id: entry.id,
+      userId: entry.user_id,
+      weight: parseFloat(entry.weight),
+      date: entry.date,
+      createdAt: entry.created_at
+    };
+
+    res.status(201).json(transformedEntry);
   } catch (error) {
     console.error('Create body weight entry error:', error);
     res.status(500).json({ error: 'Internal server error' });
