@@ -511,10 +511,13 @@ const BodyWeightChart: React.FC<{data: BodyWeightEntry[]}> = ({ data }) => {
         return <p className="text-brand-secondary-text text-center py-4">No body weight data yet.</p>;
     }
 
-    const chartData = data.map(entry => ({
-        date: new Date(entry.date).toLocaleDateString('en-CA'),
-        weight: entry.weight,
-    })).reverse();
+    // Sort data from oldest to newest for left-to-right chart
+    const chartData = data
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map(entry => ({
+            date: new Date(entry.date).toLocaleDateString('en-CA'),
+            weight: entry.weight,
+        }));
 
     return (
         <div className="bg-brand-surface p-2 rounded-lg h-64">
@@ -534,6 +537,8 @@ const BodyWeightChart: React.FC<{data: BodyWeightEntry[]}> = ({ data }) => {
         </div>
     )
 }
+
+type TimeFrame = '1week' | '1month' | '3months' | '6months' | '1year' | 'all';
 
 const BodyWeightHistoryTable: React.FC<{ data: BodyWeightEntry[] }> = ({ data }) => {
     if (data.length === 0) {
@@ -569,10 +574,41 @@ const BodyStats: React.FC = () => {
     const { addBodyWeightEntry, getBodyWeightEntriesByUserId } = useWorkout();
     const [weight, setWeight] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [timeFrame, setTimeFrame] = useState<TimeFrame>('3months');
 
     if (!currentUser) return null;
 
-    const userWeightData = getBodyWeightEntriesByUserId(currentUser.id);
+    const allUserWeightData = getBodyWeightEntriesByUserId(currentUser.id);
+
+    // Filter data based on selected time frame
+    const getFilteredData = (data: BodyWeightEntry[], timeFrame: TimeFrame): BodyWeightEntry[] => {
+        if (timeFrame === 'all') return data;
+        
+        const now = new Date();
+        const cutoffDate = new Date();
+        
+        switch (timeFrame) {
+            case '1week':
+                cutoffDate.setDate(now.getDate() - 7);
+                break;
+            case '1month':
+                cutoffDate.setMonth(now.getMonth() - 1);
+                break;
+            case '3months':
+                cutoffDate.setMonth(now.getMonth() - 3);
+                break;
+            case '6months':
+                cutoffDate.setMonth(now.getMonth() - 6);
+                break;
+            case '1year':
+                cutoffDate.setFullYear(now.getFullYear() - 1);
+                break;
+        }
+        
+        return data.filter(entry => new Date(entry.date) >= cutoffDate);
+    };
+
+    const filteredData = getFilteredData(allUserWeightData, timeFrame);
 
     const handleAddWeight = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -591,9 +627,20 @@ const BodyStats: React.FC = () => {
         }
     };
 
+    const timeFrameOptions: { value: TimeFrame; label: string }[] = [
+        { value: '1week', label: '1W' },
+        { value: '1month', label: '1M' },
+        { value: '3months', label: '3M' },
+        { value: '6months', label: '6M' },
+        { value: '1year', label: '1Y' },
+        { value: 'all', label: 'All' },
+    ];
+
     return (
         <div>
             <h3 className="text-xl font-semibold mb-4">Body Weight Tracker</h3>
+            
+            {/* Input Form */}
             <form onSubmit={handleAddWeight} className="flex gap-2 mb-4">
                 <input 
                     type="number"
@@ -612,8 +659,26 @@ const BodyStats: React.FC = () => {
                     {isSubmitting ? '...' : 'Log'}
                 </button>
             </form>
-            <BodyWeightChart data={userWeightData} />
-            <BodyWeightHistoryTable data={userWeightData} />
+
+            {/* Time Frame Selection */}
+            <div className="flex gap-1 mb-4 overflow-x-auto">
+                {timeFrameOptions.map((option) => (
+                    <button
+                        key={option.value}
+                        onClick={() => setTimeFrame(option.value)}
+                        className={`px-3 py-1 text-sm rounded-full border whitespace-nowrap ${
+                            timeFrame === option.value
+                                ? 'bg-brand-primary text-brand-primary-text border-brand-primary'
+                                : 'bg-brand-surface border-brand-border text-brand-secondary-text hover:border-brand-primary'
+                        }`}
+                    >
+                        {option.label}
+                    </button>
+                ))}
+            </div>
+
+            <BodyWeightChart data={filteredData} />
+            <BodyWeightHistoryTable data={filteredData} />
         </div>
     )
 }
