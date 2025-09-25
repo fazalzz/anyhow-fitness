@@ -44,6 +44,9 @@ COPY --from=builder /app/src/config ./src/config
 # Clean up build tools to reduce image size
 RUN apk del make gcc g++ python3
 
+# Set environment variable for SSL handling
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+
 # Expose port
 EXPOSE 4000
 

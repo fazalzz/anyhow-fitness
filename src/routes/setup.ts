@@ -1,103 +1,145 @@
-import { Router, Request, Response } from 'express';
+import express from 'express';
 import { db } from '../config/database';
-import { hashPin } from '../utils/bcrypt';
 
-const router = Router();
+const router = express.Router();
 
-// One-time database setup endpoint (should be removed after use)
-router.post('/init-db', async (_req: Request, res: Response) => {
+// Setup basic tables for the application
+router.post('/init', async (req, res) => {
+  console.log('Database initialization started...');
   try {
-    console.log('Starting database initialization...');
-    
-    // Create users table
+    console.log('Creating users table...');
+    // Create users table with all necessary columns
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255),
-        username VARCHAR(255) UNIQUE,
-        display_name VARCHAR(255),
-        phone_number VARCHAR(20) UNIQUE,
-        pin_hash VARCHAR(255),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        display_name VARCHAR(255) NOT NULL,
+        phone_number VARCHAR(20) NOT NULL UNIQUE,
+        pin_hash VARCHAR(255) NOT NULL,
         avatar TEXT,
-        is_private BOOLEAN DEFAULT false,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        is_private BOOLEAN NOT NULL DEFAULT false,
+        otp_code VARCHAR(10),
+        otp_expires_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
 
-    // Create other essential tables
+    // Create friendship status enum if it doesn't exist
     await db.query(`
-      CREATE TABLE IF NOT EXISTS workouts (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        duration INTEGER,
-        exercises JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
+      DO $$ BEGIN
+        CREATE TYPE friendship_status AS ENUM ('pending', 'accepted');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS posts (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        workout_id INTEGER REFERENCES workouts(id),
-        image_url TEXT,
-        caption TEXT,
-        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
+    // Create friendships table
     await db.query(`
       CREATE TABLE IF NOT EXISTS friendships (
-        id SERIAL PRIMARY KEY,
-        requester_id INTEGER REFERENCES users(id),
-        receiver_id INTEGER REFERENCES users(id),
-        status VARCHAR(20) DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status friendship_status NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(requester_id, receiver_id)
       )
     `);
 
+    // Create workouts table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS workouts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        branch VARCHAR(255) NOT NULL
+      )
+    `);
+
+    // Create posts table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS posts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workout_id UUID REFERENCES workouts(id) ON DELETE CASCADE,
+        image_url TEXT,
+        caption TEXT,
+        date TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // Create body_weight_entries table
     await db.query(`
       CREATE TABLE IF NOT EXISTS body_weight_entries (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        weight DECIMAL(5,2),
-        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        weight NUMERIC(6, 2) NOT NULL,
+        date TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
 
-    // Create a test user
-    const testPin = '12345678';
-    const pinHash = await hashPin(testPin);
-    
+    // Create gyms table
     await db.query(`
-      INSERT INTO users (name, username, display_name, phone_number, pin_hash)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (phone_number) DO NOTHING
-    `, ['Test User', 'testuser_123', 'Test User', '+1234567890', pinHash]);
+      CREATE TABLE IF NOT EXISTS gyms (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        is_system_gym BOOLEAN NOT NULL DEFAULT FALSE,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
 
-    // Get user count
-    const userCount = await db.query('SELECT COUNT(*) as count FROM users');
+    // Create gym_branches table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS gym_branches (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        gym_id UUID NOT NULL REFERENCES gyms(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        full_name VARCHAR(512) NOT NULL,
+        address TEXT,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // Create user_gym_access table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_gym_access (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        gym_id UUID NOT NULL REFERENCES gyms(id) ON DELETE CASCADE,
+        granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        granted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(user_id, gym_id)
+      )
+    `);
+
+    // Create indexes for performance
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_gyms_name ON gyms(name)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_gym_branches_gym_id ON gym_branches(gym_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_user_gym_access_user_id ON user_gym_access(user_id)`);
 
     res.json({
-      success: true,
-      message: 'Database initialized successfully',
-      userCount: userCount.rows[0].count,
-      testUser: {
-        name: 'Test User',
-        pin: '12345678'
-      }
+      status: 'success',
+      message: 'Database tables initialized successfully'
     });
 
   } catch (error: any) {
-    console.error('Database initialization failed:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
+    console.error('Database setup error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
       stack: error.stack
+    });
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to initialize database',
+      error: error.message,
+      code: error.code
     });
   }
 });

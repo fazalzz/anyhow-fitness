@@ -7,7 +7,7 @@ const router = Router();
 // Get all gyms and branches accessible to the user
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     
     const query = `
       SELECT 
@@ -58,7 +58,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 // Create a new gym
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const { name } = req.body;
     
     if (!name || name.trim() === '') {
@@ -93,7 +93,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 // Add a branch to a gym
 router.post('/:gymId/branches', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const { gymId } = req.params;
     const { name, address } = req.body;
     
@@ -138,7 +138,7 @@ router.post('/:gymId/branches', authenticateToken, async (req: AuthRequest, res:
 // Get all branch options for dropdowns (flattened list)
 router.get('/branches', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     
     const query = `
       SELECT 
