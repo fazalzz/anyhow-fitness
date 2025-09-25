@@ -55,10 +55,10 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   // Create user
   const newUser = await db.query(
-    `INSERT INTO users (username, display_name, phone_number, pin_hash) 
-     VALUES ($1, $2, $3, $4) 
+    `INSERT INTO users (name, username, display_name, phone_number, pin_hash) 
+     VALUES ($1, $2, $3, $4, $5) 
      RETURNING id, username, display_name, phone_number, avatar, is_private, created_at`,
-    [username, name, phoneNumber, pinHash]
+    [name, username, name, phoneNumber, pinHash]
   );
 
   const user = newUser.rows[0];
