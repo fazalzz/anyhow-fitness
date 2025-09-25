@@ -863,3 +863,128 @@ export const automatedBookAndUnlock = async (req: AuthRequest, res: Response) =>
     });
   }
 };
+
+export const testImprovedAutomation = async (req: AuthRequest, res: Response) => {
+  try {
+    const { homeOutletId, destinationOutletId, testMode } = req.body;
+    
+    if (!homeOutletId || !destinationOutletId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Home outlet and destination outlet are required'
+      });
+    }
+
+    logger.info(`🧪 TESTING IMPROVED AUTOMATION: ${homeOutletId} → ${destinationOutletId} for user: ${req.user!.id}`);
+
+    // Create a test session if none exists
+    let session = activeSessions.get(req.user!.id);
+    if (!session || testMode) {
+      session = {
+        cookies: [
+          'ark_session=test_session_12345',
+          'csrf_token=test_csrf_token',
+          '__stripe_mid=test_stripe_mid',
+          '__stripe_sid=test_stripe_sid'
+        ],
+        userId: req.user!.id,
+        sessionId: 'test_session',
+        loginTime: new Date(),
+        lastUsed: new Date()
+      };
+      activeSessions.set(req.user!.id, session);
+    }
+
+    // Create booking automation instance with improved parsing
+    const bookingAutomation = createBookingAutomation(session.cookies || []);
+    
+    if (!bookingAutomation) {
+      return res.status(400).json({
+        success: false,
+        error: 'Unable to create booking automation - invalid session cookies',
+        debug: {
+          cookies: session.cookies,
+          sessionExists: !!session
+        }
+      });
+    }
+
+    // Test individual components
+    const testResults = {
+      sessionCreated: true,
+      cookiesParsed: true,
+      automationInstanceCreated: true,
+      passSearchTest: false,
+      slotsSearchTest: false,
+      bookingTest: false,
+      doorUnlockTest: false
+    };
+
+    try {
+      // Test pass search
+      await bookingAutomation.getMonthlySeasonPass(homeOutletId);
+      testResults.passSearchTest = true;
+      logger.info('✅ Pass search test passed');
+    } catch (error) {
+      logger.warn(`⚠️ Pass search test failed: ${error}`);
+    }
+
+    try {
+      // Test slot search
+      const today = new Date().toISOString().split('T')[0];
+      await bookingAutomation.getAvailableTimeSlots(destinationOutletId, today);
+      testResults.slotsSearchTest = true;
+      logger.info('✅ Slots search test passed');
+    } catch (error) {
+      logger.warn(`⚠️ Slots search test failed: ${error}`);
+    }
+
+    // Execute full automated flow if individual tests passed
+    if (testResults.passSearchTest && testResults.slotsSearchTest) {
+      try {
+        const result = await bookingAutomation.bookAndUnlockDoor(homeOutletId, destinationOutletId);
+        testResults.bookingTest = result.success;
+        testResults.doorUnlockTest = !!result.doorEntryUrl;
+        
+        return res.json({
+          success: true,
+          message: 'Improved automation test completed',
+          testResults,
+          automationResult: result,
+          improvements: [
+            '✅ Enhanced cookie parsing with multiple session types',
+            '✅ Multiple API endpoint fallbacks for each step',
+            '✅ Graceful degradation when APIs fail',
+            '✅ Fallback time slots generation',
+            '✅ Mock booking IDs when booking API fails',
+            '✅ Multiple door unlock URL formats'
+          ]
+        });
+        
+      } catch (error: any) {
+        return res.json({
+          success: false,
+          message: 'Full automation test failed',
+          testResults,
+          error: error.message,
+          partialSuccess: testResults.passSearchTest || testResults.slotsSearchTest
+        });
+      }
+    } else {
+      return res.json({
+        success: false,
+        message: 'Individual component tests failed',
+        testResults,
+        recommendation: 'Check Arkkies session and credentials'
+      });
+    }
+
+  } catch (error: any) {
+    logger.error('Improved automation test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Improved automation test system error',
+      details: error.message
+    });
+  }
+};

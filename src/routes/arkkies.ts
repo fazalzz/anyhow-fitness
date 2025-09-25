@@ -28,6 +28,9 @@ router.post('/test-enhanced-api', arkkiesController.testEnhancedAPI);
 // COMPLETE AUTOMATION: Book + Unlock Door in one action
 router.post('/automated-book-unlock', arkkiesController.automatedBookAndUnlock);
 
+// Test improved automation system
+router.post('/test-improved-automation', arkkiesController.testImprovedAutomation);
+
 // Book gym slot and open door (legacy)
 router.post('/book-and-access', arkkiesController.bookAndAccessGym);
 
