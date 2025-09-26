@@ -17,12 +17,24 @@ const UnifiedExerciseSelectionModal: React.FC<{
 }> = ({ onSelect, onClose, onAddCustom, customExercises }) => {
     const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('All');
     
-    const muscleGroups = ['All', ...Array.from(new Set(EXERCISES.map(ex => ex.muscleGroup))).sort()];
+    // Get all unique muscle groups from primary muscles and secondary muscles
+    const allMuscleGroups = new Set<string>();
+    [...EXERCISES, ...customExercises].forEach(ex => {
+        allMuscleGroups.add(ex.primaryMuscle || ex.muscleGroup);
+        if (ex.secondaryMuscles) {
+            ex.secondaryMuscles.forEach(muscle => allMuscleGroups.add(muscle));
+        }
+    });
+    const muscleGroups = ['All', ...Array.from(allMuscleGroups).sort()];
     
     const allExercises = [...EXERCISES, ...customExercises];
     const filteredExercises = selectedMuscleGroup === 'All' 
         ? allExercises 
-        : allExercises.filter(ex => ex.muscleGroup === selectedMuscleGroup);
+        : allExercises.filter(ex => {
+            const primaryMatch = (ex.primaryMuscle || ex.muscleGroup) === selectedMuscleGroup;
+            const secondaryMatch = ex.secondaryMuscles?.includes(selectedMuscleGroup) || false;
+            return primaryMatch || secondaryMatch;
+        });
     
     const userCustomExercises = filteredExercises.filter(ex => ex.id.startsWith('custom-'));
     const builtInExercises = filteredExercises.filter(ex => !ex.id.startsWith('custom-'));
@@ -64,10 +76,18 @@ const UnifiedExerciseSelectionModal: React.FC<{
                         <>
                             <h4 className="text-sm font-semibold text-brand-secondary-text mb-2">Your Custom Exercises</h4>
                             {userCustomExercises.map(ex => (
-                                <button key={ex.id} onClick={() => onSelect(ex)} className="w-full text-left p-3 rounded-lg flex items-center bg-brand-primary bg-opacity-20 hover:bg-opacity-30 border border-brand-primary transition-colors">
-                                    <PlaceholderIcon />
-                                    <span className="ml-3 font-semibold">{ex.name}</span>
-                                    <span className="ml-auto text-xs bg-brand-primary text-brand-primary-text px-2 py-1 rounded">Custom</span>
+                                <button key={ex.id} onClick={() => onSelect(ex)} className="w-full text-left p-3 rounded-lg flex flex-col items-start bg-brand-primary bg-opacity-20 hover:bg-opacity-30 border border-brand-primary transition-colors">
+                                    <div className="flex items-center w-full">
+                                        <PlaceholderIcon />
+                                        <span className="ml-3 font-semibold">{ex.name}</span>
+                                        <span className="ml-auto text-xs bg-brand-primary text-brand-primary-text px-2 py-1 rounded">Custom</span>
+                                    </div>
+                                    <div className="ml-8 mt-1 text-xs text-brand-secondary-text">
+                                        Primary: {ex.primaryMuscle || ex.muscleGroup}
+                                        {ex.secondaryMuscles && ex.secondaryMuscles.length > 0 && (
+                                            <span> | Secondary: {ex.secondaryMuscles.join(', ')}</span>
+                                        )}
+                                    </div>
                                 </button>
                             ))}
                             {builtInExercises.length > 0 && <div className="border-t border-brand-border my-3"></div>}
@@ -77,10 +97,17 @@ const UnifiedExerciseSelectionModal: React.FC<{
                         <>
                             <h4 className="text-sm font-semibold text-brand-secondary-text mb-2">Default Exercises</h4>
                             {builtInExercises.map(ex => (
-                                 <button key={ex.id} onClick={() => onSelect(ex)} className="w-full text-left p-3 rounded-lg flex items-center bg-brand-surface-alt hover:bg-brand-border transition-colors">
-                                    <PlaceholderIcon />
-                                    <span className="ml-3 font-semibold">{ex.name}</span>
-                                    <span className="ml-auto text-xs text-brand-secondary-text">{ex.muscleGroup}</span>
+                                 <button key={ex.id} onClick={() => onSelect(ex)} className="w-full text-left p-3 rounded-lg flex flex-col items-start bg-brand-surface-alt hover:bg-brand-border transition-colors">
+                                    <div className="flex items-center w-full">
+                                        <PlaceholderIcon />
+                                        <span className="ml-3 font-semibold">{ex.name}</span>
+                                    </div>
+                                    <div className="ml-8 mt-1 text-xs text-brand-secondary-text">
+                                        Primary: {ex.primaryMuscle || ex.muscleGroup}
+                                        {ex.secondaryMuscles && ex.secondaryMuscles.length > 0 && (
+                                            <span> | Secondary: {ex.secondaryMuscles.join(', ')}</span>
+                                        )}
+                                    </div>
                                  </button>
                             ))}
                         </>
@@ -99,13 +126,19 @@ const CustomExerciseModal: React.FC<{
     const [exerciseName, setExerciseName] = useState('');
     const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('');
     
-    const muscleGroups = Array.from(new Set(EXERCISES.map(ex => ex.muscleGroup))).sort();
+    // Get all unique muscle groups from primary muscles
+    const allMuscleGroups = new Set<string>();
+    EXERCISES.forEach(ex => {
+        allMuscleGroups.add(ex.primaryMuscle || ex.muscleGroup);
+    });
+    const muscleGroups = Array.from(allMuscleGroups).sort();
     
     const handleSave = () => {
         if (exerciseName.trim() && selectedMuscleGroup) {
             const newExercise: Exercise = {
                 id: `custom-${Date.now()}`,
                 name: exerciseName.trim(),
+                primaryMuscle: selectedMuscleGroup,
                 muscleGroup: selectedMuscleGroup
             };
             onSave(newExercise);

@@ -19,7 +19,10 @@ export interface FrontendUser extends BaseUser {
 export interface Exercise {
   id: string;
   name: string;
-  muscleGroup: string;
+  primaryMuscle: string;
+  secondaryMuscles?: string[];
+  // Backward compatibility
+  muscleGroup: string; // Will be set to primaryMuscle
 }
 
 export interface ExerciseSet {

@@ -788,7 +788,10 @@ const StrengthStats: React.FC = () => {
 
         EXERCISES.forEach(ex => {
             if (exercisesInBrand.has(ex.id)) {
-                muscleGroups.add(ex.muscleGroup);
+                muscleGroups.add(ex.primaryMuscle || ex.muscleGroup);
+                if (ex.secondaryMuscles) {
+                    ex.secondaryMuscles.forEach(muscle => muscleGroups.add(muscle));
+                }
             }
         });
 
@@ -806,7 +809,11 @@ const StrengthStats: React.FC = () => {
         }));
 
         return EXERCISES
-            .filter(ex => ex.muscleGroup === selectedMuscleGroup && exercisesInGroup.has(ex.id))
+            .filter(ex => {
+                const primaryMatch = (ex.primaryMuscle || ex.muscleGroup) === selectedMuscleGroup;
+                const secondaryMatch = ex.secondaryMuscles?.includes(selectedMuscleGroup) || false;
+                return (primaryMatch || secondaryMatch) && exercisesInGroup.has(ex.id);
+            })
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [userWorkouts, selectedBrand, selectedMuscleGroup]);
     
