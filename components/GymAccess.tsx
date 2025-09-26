@@ -91,6 +91,26 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Check for existing Arkkies session on component mount
   useEffect(() => {
     const checkExistingSession = async () => {
+      // Check local cache first for instant response
+      const cachedSession = localStorage.getItem(`arkkies_session_${currentUser?.id}`);
+      if (cachedSession) {
+        try {
+          const sessionData = JSON.parse(cachedSession);
+          // Check if cached session is less than 5 minutes old
+          const cacheAge = Date.now() - sessionData.timestamp;
+          if (cacheAge < 5 * 60 * 1000) { // 5 minutes
+            setIsLoggedIn(true);
+            setSessionInfo(sessionData.data);
+            setCurrentStep(2);
+            setSuccess(`Already connected to Arkkies! (Cached)`);
+            setIsCheckingSession(false);
+            return;
+          }
+        } catch (e) {
+          // Invalid cache, continue with API call
+        }
+      }
+
       setIsCheckingSession(true);
       try {
         const response = await apiArkkiesSessionStatus();
@@ -100,6 +120,12 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           setSessionInfo(response.data);
           setCurrentStep(2); // Skip login step
           setSuccess(`Already connected to Arkkies! (Since ${new Date(response.data.loginTime).toLocaleTimeString()})`);
+          
+          // Cache the session for 5 minutes
+          localStorage.setItem(`arkkies_session_${currentUser?.id}`, JSON.stringify({
+            data: response.data,
+            timestamp: Date.now()
+          }));
           
           // Load outlets from API
           try {
@@ -112,10 +138,13 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           }
         } else {
           setIsLoggedIn(false);
+          // Clear any stale cache
+          localStorage.removeItem(`arkkies_session_${currentUser?.id}`);
         }
       } catch (error) {
         console.error('Failed to check session status:', error);
         setIsLoggedIn(false);
+        localStorage.removeItem(`arkkies_session_${currentUser?.id}`);
       } finally {
         setIsCheckingSession(false);
       }
@@ -141,6 +170,12 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setSessionInfo(response.data);
         setSuccess('Successfully logged into Arkkies! Session will persist.');
         setCurrentStep(2);
+        
+        // Cache the fresh session
+        localStorage.setItem(`arkkies_session_${currentUser?.id}`, JSON.stringify({
+          data: response.data,
+          timestamp: Date.now()
+        }));
         
         // Load outlets from API
         try {
