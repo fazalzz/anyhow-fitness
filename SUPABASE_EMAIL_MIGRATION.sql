@@ -1,76 +1,113 @@
--- SUPABASE EMAIL MIGRATION - Run this in your Supabase SQL Editor
--- This updates your users table from phone numbers to email addresses
+-- ⚡ SUPABASE EMAIL MIGRATION - COPY AND PASTE THIS ENTIRE SCRIPT
+-- Run this in your Supabase SQL Editor to add email authentication
 
 BEGIN;
 
--- 1. Add email column with validation
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+-- 1. Add email column to users table
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 
 -- 2. Add email verification columns for future use
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token VARCHAR(255);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMPTZ;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email_verification_token VARCHAR(255);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMPTZ;
 
--- 3. Add display_name column (maps to existing 'name' but clearer naming)
-ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(255);
-
--- 4. For existing users, copy name to display_name
-UPDATE users 
-SET display_name = name 
-WHERE display_name IS NULL;
-
--- 5. For existing users without email, create temporary emails
--- Format: user_{phone_number}@temp.anyhowfitness.com
-UPDATE users 
-SET email = CONCAT('user_', REPLACE(phone_number, '+', ''), '@temp.anyhowfitness.com')
+-- 3. For existing users, create temporary emails based on phone numbers
+-- Format: user_1234567890@temp.anyhowfitness.com
+UPDATE public.users 
+SET email = CONCAT('user_', REPLACE(REPLACE(phone_number, '+', ''), '-', ''), '@temp.anyhowfitness.com')
 WHERE email IS NULL AND phone_number IS NOT NULL;
 
--- 6. For users without phone numbers, use their name
-UPDATE users 
-SET email = CONCAT(LOWER(REPLACE(name, ' ', '_')), '@temp.anyhowfitness.com')
+-- 4. For any users without phone numbers, use their display_name
+UPDATE public.users 
+SET email = CONCAT(LOWER(REPLACE(REPLACE(display_name, ' ', '_'), '''', '')), '@temp.anyhowfitness.com')
 WHERE email IS NULL;
 
--- 7. Set existing users as email verified (they were already using the app)
-UPDATE users SET email_verified = TRUE WHERE email_verified = FALSE;
+-- 5. Set existing users as email verified (they were already using the app)
+UPDATE public.users SET email_verified = TRUE WHERE email_verified = FALSE;
 
--- 8. Make email required and unique
-ALTER TABLE users ALTER COLUMN email SET NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email);
+-- 6. Make email required and unique
+ALTER TABLE public.users ALTER COLUMN email SET NOT NULL;
 
--- 9. Add email format validation
-ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS chk_email_format 
+-- 7. Create unique constraint for email (drop and recreate to avoid conflicts)
+DROP INDEX IF EXISTS idx_users_email_unique;
+CREATE UNIQUE INDEX idx_users_email_unique ON public.users(email);
+
+-- 8. Add email format validation constraint
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS chk_email_format;
+ALTER TABLE public.users ADD CONSTRAINT chk_email_format 
 CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 
--- 10. Add performance indexes
-CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));
-CREATE INDEX IF NOT EXISTS idx_users_display_name ON users(display_name);
-CREATE INDEX IF NOT EXISTS idx_users_email_verified ON users(email_verified);
+-- 9. Add performance indexes
+CREATE INDEX IF NOT EXISTS idx_users_email_lower ON public.users(LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_users_display_name ON public.users(display_name);
+CREATE INDEX IF NOT EXISTS idx_users_email_verified ON public.users(email_verified);
 
--- 11. Update custom_exercises table to support primary/secondary muscles
-ALTER TABLE custom_exercises ADD COLUMN IF NOT EXISTS primary_muscle VARCHAR(100);
-ALTER TABLE custom_exercises ADD COLUMN IF NOT EXISTS secondary_muscles TEXT[]; -- Array of secondary muscles
+-- 10. Create custom_exercises table if it doesn't exist (for muscle group enhancements)
+CREATE TABLE IF NOT EXISTS public.custom_exercises (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    muscle_group VARCHAR(100) NOT NULL,
+    primary_muscle VARCHAR(100),
+    secondary_muscles TEXT[], -- Array of secondary muscles
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, name)
+);
+
+-- 11. Add primary/secondary muscle columns to custom_exercises if they exist
+DO $$ 
+BEGIN
+    -- Add primary_muscle column if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'custom_exercises' 
+        AND column_name = 'primary_muscle'
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE public.custom_exercises ADD COLUMN primary_muscle VARCHAR(100);
+    END IF;
+    
+    -- Add secondary_muscles column if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'custom_exercises' 
+        AND column_name = 'secondary_muscles'
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE public.custom_exercises ADD COLUMN secondary_muscles TEXT[];
+    END IF;
+END $$;
 
 -- 12. For existing custom exercises, set primary_muscle from muscle_group
-UPDATE custom_exercises 
+UPDATE public.custom_exercises 
 SET primary_muscle = muscle_group 
-WHERE primary_muscle IS NULL;
+WHERE primary_muscle IS NULL AND muscle_group IS NOT NULL;
 
--- 13. Make primary_muscle required
-ALTER TABLE custom_exercises ALTER COLUMN primary_muscle SET NOT NULL;
+-- 13. Add index for muscle columns
+CREATE INDEX IF NOT EXISTS idx_custom_exercises_primary_muscle ON public.custom_exercises(primary_muscle);
+CREATE INDEX IF NOT EXISTS idx_custom_exercises_user_id ON public.custom_exercises(user_id);
 
--- 14. Add index for new muscle columns
-CREATE INDEX IF NOT EXISTS idx_custom_exercises_primary_muscle ON custom_exercises(primary_muscle);
+-- 14. Create migrations table to track this change
+CREATE TABLE IF NOT EXISTS public.migrations (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    hash VARCHAR(64),
+    executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- 15. Record this migration
-INSERT INTO migrations (name, hash) 
+INSERT INTO public.migrations (name, hash) 
 VALUES (
     '004_email_migration', 
-    'email_auth_forgot_password_implementation'
-) ON CONFLICT (name) DO NOTHING;
+    'email_auth_forgot_password_implementation_v2'
+) ON CONFLICT (name) DO UPDATE SET 
+    hash = EXCLUDED.hash,
+    executed_at = NOW();
 
 COMMIT;
 
--- Verification queries (run these after the migration to check):
--- SELECT email, display_name, email_verified FROM users LIMIT 5;
--- SELECT COUNT(*) as total_users, COUNT(email) as users_with_email FROM users;
--- SELECT primary_muscle, secondary_muscles FROM custom_exercises LIMIT 5;
+-- ✅ VERIFICATION QUERIES - Run these after the migration to verify success:
+-- SELECT email, display_name, email_verified, phone_number FROM public.users LIMIT 5;
+-- SELECT COUNT(*) as total_users, COUNT(email) as users_with_email FROM public.users;
+-- SELECT name, primary_muscle, secondary_muscles FROM public.custom_exercises LIMIT 5;
