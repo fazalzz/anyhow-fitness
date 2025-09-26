@@ -23,6 +23,7 @@ import fs from 'fs';
   }
 })();
 import authRoutes from './routes/auth';
+import oauthRoutes from './routes/oauth';
 import userRoutes from './routes/users';
 import workoutRoutes from './routes/workouts';
 import postRoutes from './routes/posts';
@@ -98,6 +99,7 @@ app.use('/api', apiRateLimit);
 
 // Routes with specific rate limiting for auth
 app.use('/api/auth', authRateLimit, authRoutes);
+app.use('/auth', authRateLimit, oauthRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/workouts', workoutRoutes);
 app.use('/api/posts', postRoutes);

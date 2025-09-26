@@ -31,6 +31,8 @@
   "dependencies": {
     "@types/cheerio": "^0.22.35",
     "@types/nodemailer": "^7.0.1",
+    "@types/passport": "^1.0.17",
+    "@types/passport-google-oauth20": "^2.0.16",
     "bcrypt": "^5.1.1",
     "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
@@ -44,6 +46,9 @@
     "hpp": "^0.2.3",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.6",
+    "passport": "^0.7.0",
+    "passport-apple": "^2.0.2",
+    "passport-google-oauth20": "^2.0.0",
     "pg": "^8.16.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
