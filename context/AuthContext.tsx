@@ -10,7 +10,9 @@ interface AuthContextType {
   token: string | null;
   login: (name: string, pin: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  register: (name: string, pin: string, phoneNumber: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, pin: string, email: string) => Promise<{ success: boolean; error?: string }>;
+  requestResetCode: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resetPin: (email: string, code: string, newPin: string) => Promise<{ success: boolean; error?: string }>;
   findUserByName: (name: string) => Promise<User | undefined>;
   updateUserPin: (userId: string, newPin: string) => Promise<void>;
   updateUser: (userId: string, updatedData: Partial<User>) => Promise<void>;
@@ -25,7 +27,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('authToken'));
+  const [token, setToken] = useState<string | null>(localStorage.getItem('accessToken'));
 
   const isAuthenticated = () => {
     if (!token || !currentUser) return false;
@@ -50,7 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Restore user session on mount
   useEffect(() => {
     const initializeAuth = async () => {
-      const storedToken = localStorage.getItem('authToken');
+      const storedToken = localStorage.getItem('accessToken');
       
       if (storedToken) {
         try {
@@ -141,14 +143,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const result = await api.login(name, pin);
       
       if (result.success && result.data) {
-        const { user, token } = result.data;
-        if (!token) {
-            throw new Error('No token received from server');
+        const { user, accessToken } = result.data;
+        if (!accessToken) {
+            throw new Error('No access token received from server');
         }
         
         setCurrentUser(user);
-        setToken(token);
-        localStorage.setItem('authToken', token);
+        setToken(accessToken);
+        // Token is already stored by the API client
         return { success: true };
       } else {
         throw new Error(result.error || 'Login failed');
@@ -167,7 +169,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Clear all auth state
       setCurrentUser(null);
       setToken(null);
-      localStorage.removeItem('authToken');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       
       // Optional: Call logout endpoint to invalidate token on server
       await api.apiLogout().catch(console.error);
@@ -176,13 +179,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (name: string, pin: string, phoneNumber: string) => {
+  const register = async (name: string, pin: string, email: string) => {
     try {
       setLoading(true);
       setError(null);
 
       // Validate inputs
-      if (!name || !pin || !phoneNumber) {
+      if (!name || !pin || !email) {
         throw new Error('All fields are required');
       }
 
@@ -190,18 +193,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error('PIN must be at least 4 digits');
       }
 
-      const result = await api.apiRegister(name, pin, phoneNumber);
+      const result = await api.apiRegister(name, pin, email);
       
       if (result.success && result.data) {
-        const { user, token } = result.data;
-        if (!user || !token) {
+        const { user, accessToken } = result.data;
+        if (!user || !accessToken) {
           throw new Error('Invalid response from server');
         }
 
         setUsers(prev => [...prev, user]);
         setCurrentUser(user);
-        setToken(token);
-        localStorage.setItem('authToken', token);
+        setToken(accessToken);
+        // Token is already stored by the API client
         return { success: true };
       } else {
         throw new Error(result.error || 'Registration failed');
@@ -312,6 +315,60 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const requestResetCode = async (email: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!email) {
+        throw new Error('Email is required');
+      }
+
+      const result = await api.apiRequestResetCode(email);
+      
+      if (result.success) {
+        return { success: true };
+      } else {
+        throw new Error(result.error || 'Failed to send reset code');
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to send reset code';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPin = async (email: string, code: string, newPin: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!email || !code || !newPin) {
+        throw new Error('All fields are required');
+      }
+
+      if (newPin.length !== 8 || !/^\d+$/.test(newPin)) {
+        throw new Error('PIN must be 8 digits');
+      }
+
+      const result = await api.apiResetPin(email, code, newPin);
+      
+      if (result.success) {
+        return { success: true };
+      } else {
+        throw new Error(result.error || 'Failed to reset PIN');
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to reset PIN';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       currentUser, 
@@ -326,6 +383,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updateUserPin, 
       updateUser, 
       changePin,
+      requestResetCode,
+      resetPin,
       isAuthenticated 
     }}>
       {children}

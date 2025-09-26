@@ -5,7 +5,8 @@ import {
   requestResetCode,
   resetPin,
   validateToken,
-  logout
+  logout,
+  refreshToken
 } from '../controllers/authController';
 import { validateRegister, validateLogin } from '../middleware/validation';
 import { authenticateToken } from '../middleware/auth';
@@ -18,5 +19,6 @@ router.post('/forgot-pin/request-code', requestResetCode);
 router.post('/forgot-pin/reset', resetPin);
 router.get('/validate', authenticateToken, validateToken);
 router.post('/logout', logout);
+router.post('/refresh', refreshToken);
 
 export default router;

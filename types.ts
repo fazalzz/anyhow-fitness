@@ -12,7 +12,10 @@ export interface BaseUser {
 // Frontend-specific user type
 export interface FrontendUser extends BaseUser {
   pin: string;
-  phoneNumber: string;
+  email: string;
+  emailVerified?: boolean;
+  // Keep for backward compatibility during migration
+  phoneNumber?: string;
 }
 
 // Exercise and workout related types

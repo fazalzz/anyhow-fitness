@@ -22,8 +22,33 @@ class ApiError extends Error {
   }
 }
 
-// Get the auth token from localStorage
-const getAuthToken = () => localStorage.getItem('authToken');
+// Get the auth tokens from localStorage
+const getAuthToken = () => localStorage.getItem('accessToken');
+const getRefreshToken = () => localStorage.getItem('refreshToken');
+
+// Refresh the access token using the refresh token
+const refreshAuthToken = async (): Promise<void> => {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+
+  const response = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refreshToken })
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to refresh token');
+  }
+
+  const data = await response.json();
+  localStorage.setItem('accessToken', data.accessToken);
+  localStorage.setItem('refreshToken', data.refreshToken);
+};
 
 // Common headers for all requests
 const getHeaders = () => {
@@ -85,8 +110,24 @@ const handleResponse = async (response: Response) => {
     switch (response.status) {
       case 401:
         if (getAuthToken()) {
-          localStorage.removeItem('authToken');
-          window.location.href = '/login';
+          // Try to refresh the token
+          const refreshToken = getRefreshToken();
+          if (refreshToken) {
+            try {
+              await refreshAuthToken();
+              // If refresh successful, we don't throw here - let the caller retry
+              return data;
+            } catch (refreshError) {
+              // Refresh failed, clear tokens and redirect
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              window.location.href = '/login';
+            }
+          } else {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            window.location.href = '/login';
+          }
         }
         throw new ApiError(401, 'Unauthorized', 'Authentication required');
         
@@ -186,32 +227,53 @@ export const apiLogout = async (): Promise<ApiResponse<void>> => {
   );
 };
 
+// Forgot Password API Functions
+export const apiRequestResetCode = async (email: string): Promise<ApiResponse<{message: string}>> => {
+  return apiRequest<{message: string}>(
+    '/auth/forgot-pin/request-code',
+    createRequestOptions('POST', { email })
+  );
+};
+
+export const apiResetPin = async (
+  email: string, 
+  code: string, 
+  newPin: string
+): Promise<ApiResponse<{message: string}>> => {
+  return apiRequest<{message: string}>(
+    '/auth/forgot-pin/reset',
+    createRequestOptions('POST', { email, code, newPin })
+  );
+};
+
 export const login = async (
   name: string,
   pin: string
-): Promise<ApiResponse<{user: User; token: string}>> => {
-  const result = await apiRequest<{user: User; token: string}>(
+): Promise<ApiResponse<{user: User; accessToken: string; refreshToken: string}>> => {
+  const result = await apiRequest<{user: User; accessToken: string; refreshToken: string}>(
     '/auth/login',
     createRequestOptions('POST', { name, pin })
   );
   
-  if (result.success && result.data?.token) {
-    localStorage.setItem('authToken', result.data.token);
+  if (result.success && result.data?.accessToken) {
+    localStorage.setItem('accessToken', result.data.accessToken);
+    localStorage.setItem('refreshToken', result.data.refreshToken);
   }
 
   return result;
 };export const apiRegister = async (
   name: string,
   pin: string,
-  phoneNumber: string
-): Promise<ApiResponse<{user: User; token: string}>> => {
-  const result = await apiRequest<{user: User; token: string}>(
+  email: string
+): Promise<ApiResponse<{user: User; accessToken: string; refreshToken: string}>> => {
+  const result = await apiRequest<{user: User; accessToken: string; refreshToken: string}>(
     '/auth/register',
-    createRequestOptions('POST', { name, pin, phoneNumber })
+    createRequestOptions('POST', { name, pin, email })
   );
   
-  if (result.success && result.data?.token) {
-    localStorage.setItem('authToken', result.data.token);
+  if (result.success && result.data?.accessToken) {
+    localStorage.setItem('accessToken', result.data.accessToken);
+    localStorage.setItem('refreshToken', result.data.refreshToken);
   }
   
   return result;

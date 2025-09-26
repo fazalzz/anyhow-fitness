@@ -31,9 +31,26 @@ import friendshipRoutes from './routes/friendships';
 import arkkiesRoutes from './routes/arkkies';
 import gymRoutes from './routes/gyms';
 import setupRoutes from './routes/setup';
+import {
+  securityHeaders,
+  enforceHTTPS,
+  sanitizeInput,
+  securityLogger,
+  suspiciousActivityDetector,
+  apiRateLimit,
+  authRateLimit,
+  speedLimiter
+} from './middleware/security';
 
 const app = express();
 const PORT = process.env.PORT || 4000; // Always use 4000
+
+// Security middleware (applied first)
+app.use(enforceHTTPS);
+app.use(securityHeaders);
+app.use(securityLogger);
+app.use(suspiciousActivityDetector);
+app.use(speedLimiter);
 
 // Middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -61,10 +78,26 @@ app.use(cors({
   ],
   credentials: true
 }));
-app.use(express.json({ limit: '10mb' }));
 
-// Routes
-app.use('/api/auth', authRoutes);
+// Body parsing with security limits
+app.use(express.json({ 
+  limit: '2mb', // Reduced from 10mb for security
+  type: 'application/json'
+}));
+app.use(express.urlencoded({ 
+  extended: false, 
+  limit: '2mb',
+  parameterLimit: 100 // Prevent parameter pollution
+}));
+
+// Input sanitization
+app.use(sanitizeInput);
+
+// Rate limiting
+app.use('/api', apiRateLimit);
+
+// Routes with specific rate limiting for auth
+app.use('/api/auth', authRateLimit, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/workouts', workoutRoutes);
 app.use('/api/posts', postRoutes);
