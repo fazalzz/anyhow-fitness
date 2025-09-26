@@ -14,6 +14,15 @@ interface CalendarDay {
   isCurrentMonth: boolean;
 }
 
+interface Shortcut {
+  id: string;
+  title: string;
+  description: string;
+  view: string;
+  image?: string;
+  icon?: React.FC;
+}
+
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const { currentUser } = useAuth();
   const { workouts } = useWorkout();
@@ -25,7 +34,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       id: 'workout',
       title: 'Start Workout', 
       description: 'Begin your fitness session',
-      icon: DumbbellIcon,
+      image: '/workout.png',
       view: 'NEW_WORKOUT'
     },
     {
@@ -39,14 +48,14 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       id: 'bodyweight',
       title: 'Track Weight',
       description: 'Log your bodyweight',
-      icon: WeightIcon,
+      image: '/weightscale.png',
       view: 'BODYWEIGHT'
     },
     {
       id: 'gymaccess',
       title: 'Gym Access',
       description: 'Access Arkkies booking',
-      icon: GymIcon,
+      image: '/access.png',
       view: 'GYM_ACCESS'
     }
   ];
@@ -110,7 +119,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <h2 className="text-lg font-semibold text-brand-primary">Quick Actions</h2>
         <div className="grid grid-cols-2 gap-3">
           {shortcuts.map((shortcut) => {
-            const IconComponent = shortcut.icon;
             return (
               <button
                 key={shortcut.id}
@@ -118,8 +126,16 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 className="p-4 bg-brand-bg rounded-lg border border-brand-border hover:bg-brand-surface-alt transition-colors active:scale-95"
               >
                 <div className="flex flex-col items-center space-y-3">
-                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                    <IconComponent />
+                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white overflow-hidden">
+                    {shortcut.image ? (
+                      <img 
+                        src={shortcut.image} 
+                        alt={shortcut.title}
+                        className="w-8 h-8 object-contain"
+                      />
+                    ) : shortcut.icon ? (
+                      <shortcut.icon />
+                    ) : null}
                   </div>
                   <div className="text-center">
                     <h3 className="font-medium text-brand-primary text-sm">{shortcut.title}</h3>
