@@ -60,6 +60,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (result.success && result.data) {
             setCurrentUser(result.data.user);
             setToken(storedToken);
+            console.log('🔐 User session restored successfully');
           } else {
             // Token invalid, clean up
             logout();
@@ -77,6 +78,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     initializeAuth();
   }, []);
+
+  // Periodic token validation to keep sessions alive
+  useEffect(() => {
+    if (!token || !currentUser) return;
+    
+    const validatePeriodically = async () => {
+      try {
+        const result = await api.apiValidateToken();
+        if (!result.success) {
+          console.log('🔐 Session expired, please log in again');
+          logout();
+        }
+      } catch (error) {
+        console.error('Periodic validation failed:', error);
+      }
+    };
+
+    // Validate every 10 minutes
+    const interval = setInterval(validatePeriodically, 10 * 60 * 1000);
+
+    // Also validate when user comes back from screen lock or tab switch
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        validatePeriodically();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [token, currentUser]);
 
   // Load users list when authenticated
   useEffect(() => {

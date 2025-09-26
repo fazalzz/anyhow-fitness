@@ -367,9 +367,30 @@ const NewWorkout: React.FC<{
 }> = ({ onFinishWorkout, onBack }) => {
     const { currentUser } = useAuth();
     const [gymBranches, setGymBranches] = useState<GymBranch[]>([]);
-    const [selectedGymBranch, setSelectedGymBranch] = useState<string>('');
     const [showAddGymModal, setShowAddGymModal] = useState(false);
-    const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>([]);
+    // Persistent workout state - survives browser/tab closure and phone screen locks
+    const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>(() => {
+        try {
+            const saved = localStorage.getItem(`workout_session_${currentUser?.id}`);
+            const restoredData = saved ? JSON.parse(saved) : [];
+            // Show notification if workout was restored
+            if (restoredData.length > 0) {
+                console.log('🔄 Workout session restored from previous session');
+            }
+            return restoredData;
+        } catch {
+            return [];
+        }
+    });
+    const [selectedGymBranch, setSelectedGymBranchState] = useState<string>(() => {
+        try {
+            const saved = localStorage.getItem(`workout_gym_${currentUser?.id}`);
+            return saved ? JSON.parse(saved) : '';
+        } catch {
+            return '';
+        }
+    });
+    
     const [isPostModalOpen, setPostModalOpen] = useState(false);
     const [finishedWorkoutId, setFinishedWorkoutId] = useState<string | null>(null);
     const [isFinishing, setIsFinishing] = useState(false);
@@ -377,6 +398,21 @@ const NewWorkout: React.FC<{
     // Modal state management
     const [modalState, setModalState] = useState<'closed' | 'exercise' | 'custom-exercise'>('closed');
     const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
+
+    // Custom setter that persists to localStorage
+    const setSelectedGymBranch = (branch: string) => {
+        setSelectedGymBranchState(branch);
+        if (currentUser?.id) {
+            localStorage.setItem(`workout_gym_${currentUser.id}`, JSON.stringify(branch));
+        }
+    };
+
+    // Persist workout state whenever it changes
+    useEffect(() => {
+        if (currentUser?.id) {
+            localStorage.setItem(`workout_session_${currentUser.id}`, JSON.stringify(loggedExercises));
+        }
+    }, [loggedExercises, currentUser?.id]);
 
     const { addWorkout } = useWorkout();
 
@@ -386,7 +422,8 @@ const NewWorkout: React.FC<{
             try {
                 const response = await api.get('/gyms/branches');
                 setGymBranches(response.data as GymBranch[]);
-                if ((response.data as GymBranch[]).length > 0) {
+                // Only set default if no gym is already selected (from persistence)
+                if ((response.data as GymBranch[]).length > 0 && !selectedGymBranch) {
                     setSelectedGymBranch((response.data as GymBranch[])[0].id);
                 }
             } catch (error) {
@@ -498,15 +535,35 @@ const NewWorkout: React.FC<{
             setFinishedWorkoutId(newWorkout.id);
             setPostModalOpen(true);
             setIsFinishing(false);
+            // Clear the session since workout is completed
+            clearWorkoutSession();
         } else {
             onFinishWorkout(); 
         }
     };
     
+    const clearWorkoutSession = () => {
+        if (currentUser?.id) {
+            localStorage.removeItem(`workout_session_${currentUser.id}`);
+            localStorage.removeItem(`workout_gym_${currentUser.id}`);
+        }
+        setLoggedExercises([]);
+        setSelectedGymBranchState('');
+    };
+
     const closePostModal = () => {
         setPostModalOpen(false);
+        clearWorkoutSession();
         onFinishWorkout();
-    }
+    };
+
+    const handleBackButton = () => {
+        // Only clear if there are no exercises logged
+        if (loggedExercises.length === 0) {
+            clearWorkoutSession();
+        }
+        onBack();
+    };
 
     return (
         <div>
@@ -530,7 +587,7 @@ const NewWorkout: React.FC<{
             {showAddGymModal && <AddGymModal onClose={() => setShowAddGymModal(false)} onGymAdded={handleGymAdded} />}
             
             <div className="flex items-center justify-between mb-4">
-                <BackButton onClick={onBack} />
+                <BackButton onClick={handleBackButton} />
                 <h2 className="text-2xl font-bold">New Workout</h2>
                 <div></div> {/* Spacer for centering */}
             </div>
