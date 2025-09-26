@@ -9,51 +9,56 @@ import { BackButton } from './common';
 // @ts-ignore
 import { api } from '../apiClient';
 
-const MuscleGroupSelectionModal: React.FC<{
-    onSelect: (muscleGroup: string) => void;
-    onClose: () => void;
-}> = ({ onSelect, onClose }) => {
-    const muscleGroups = Array.from(new Set(EXERCISES.map(ex => ex.muscleGroup))).sort();
-    
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-brand-surface rounded-lg p-4 w-full max-w-sm flex flex-col h-[80vh]">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold">Select Muscle Group</h3>
-                    <button onClick={onClose} className="text-2xl">&times;</button>
-                </div>
-                <div className="overflow-y-auto space-y-2">
-                    {muscleGroups.map(group => (
-                         <button key={group} onClick={() => onSelect(group)} className="w-full text-left p-3 rounded-lg flex items-center bg-brand-surface-alt hover:bg-brand-border transition-colors">
-                            <PlaceholderIcon />
-                            <span className="ml-3 font-semibold">{group}</span>
-                         </button>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ExerciseSelectionModal: React.FC<{
-    muscleGroup: string;
+const UnifiedExerciseSelectionModal: React.FC<{
     onSelect: (exercise: Exercise) => void;
-    onBack: () => void;
     onClose: () => void;
     onAddCustom: () => void;
     customExercises: Exercise[];
-}> = ({ muscleGroup, onSelect, onBack, onClose, onAddCustom, customExercises }) => {
-    const builtInExercises = EXERCISES.filter(ex => ex.muscleGroup === muscleGroup);
-    const userCustomExercises = customExercises.filter(ex => ex.muscleGroup === muscleGroup);
+}> = ({ onSelect, onClose, onAddCustom, customExercises }) => {
+    const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('All');
+    
+    const muscleGroups = ['All', ...Array.from(new Set(EXERCISES.map(ex => ex.muscleGroup))).sort()];
+    
+    const allExercises = [...EXERCISES, ...customExercises];
+    const filteredExercises = selectedMuscleGroup === 'All' 
+        ? allExercises 
+        : allExercises.filter(ex => ex.muscleGroup === selectedMuscleGroup);
+    
+    const userCustomExercises = filteredExercises.filter(ex => ex.id.startsWith('custom-'));
+    const builtInExercises = filteredExercises.filter(ex => !ex.id.startsWith('custom-'));
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
             <div className="bg-brand-surface rounded-lg p-4 w-full max-w-sm flex flex-col h-[80vh]">
                 <div className="flex justify-between items-center mb-4">
-                    <button onClick={onBack} className="text-xl">←</button>
-                    <h3 className="text-xl font-semibold">{muscleGroup} Exercises</h3>
+                    <h3 className="text-xl font-semibold">Select Exercise</h3>
                     <button onClick={onClose} className="text-2xl">&times;</button>
                 </div>
+                
+                {/* Add Custom Exercise Button */}
+                <button 
+                    onClick={onAddCustom}
+                    className="w-full mb-4 py-3 bg-brand-primary hover:bg-brand-primary-dark text-brand-primary-text font-semibold rounded transition-colors flex items-center justify-center"
+                >
+                    <span className="text-xl mr-2">+</span>
+                    Add Custom Exercise
+                </button>
+                
+                {/* Muscle Group Filter Dropdown */}
+                <div className="mb-4">
+                    <label className="block mb-2 text-sm font-semibold text-brand-secondary-text">Filter by Muscle Group</label>
+                    <select 
+                        value={selectedMuscleGroup} 
+                        onChange={e => setSelectedMuscleGroup(e.target.value)} 
+                        className="w-full p-2 text-sm rounded bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    >
+                        {muscleGroups.map(group => (
+                            <option key={group} value={group}>{group}</option>
+                        ))}
+                    </select>
+                </div>
+                
+                {/* Exercise List */}
                 <div className="overflow-y-auto space-y-2 flex-1">
                     {userCustomExercises.length > 0 && (
                         <>
@@ -65,42 +70,43 @@ const ExerciseSelectionModal: React.FC<{
                                     <span className="ml-auto text-xs bg-brand-primary text-brand-primary-text px-2 py-1 rounded">Custom</span>
                                 </button>
                             ))}
-                            <div className="border-t border-brand-border my-3"></div>
+                            {builtInExercises.length > 0 && <div className="border-t border-brand-border my-3"></div>}
                         </>
                     )}
-                    <h4 className="text-sm font-semibold text-brand-secondary-text mb-2">Default Exercises</h4>
-                    {builtInExercises.map(ex => (
-                         <button key={ex.id} onClick={() => onSelect(ex)} className="w-full text-left p-3 rounded-lg flex items-center bg-brand-surface-alt hover:bg-brand-border transition-colors">
-                            <PlaceholderIcon />
-                            <span className="ml-3 font-semibold">{ex.name}</span>
-                         </button>
-                    ))}
+                    {builtInExercises.length > 0 && (
+                        <>
+                            <h4 className="text-sm font-semibold text-brand-secondary-text mb-2">Default Exercises</h4>
+                            {builtInExercises.map(ex => (
+                                 <button key={ex.id} onClick={() => onSelect(ex)} className="w-full text-left p-3 rounded-lg flex items-center bg-brand-surface-alt hover:bg-brand-border transition-colors">
+                                    <PlaceholderIcon />
+                                    <span className="ml-3 font-semibold">{ex.name}</span>
+                                    <span className="ml-auto text-xs text-brand-secondary-text">{ex.muscleGroup}</span>
+                                 </button>
+                            ))}
+                        </>
+                    )}
                 </div>
-                <button 
-                    onClick={onAddCustom}
-                    className="w-full mt-4 py-3 bg-brand-primary hover:bg-brand-primary-dark text-brand-primary-text font-semibold rounded transition-colors"
-                >
-                    + Add Custom Exercise
-                </button>
             </div>
         </div>
     );
 };
 
 const CustomExerciseModal: React.FC<{
-    muscleGroup: string;
     onSave: (exercise: Exercise) => void;
     onBack: () => void;
     onClose: () => void;
-}> = ({ muscleGroup, onSave, onBack, onClose }) => {
+}> = ({ onSave, onBack, onClose }) => {
     const [exerciseName, setExerciseName] = useState('');
+    const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('');
+    
+    const muscleGroups = Array.from(new Set(EXERCISES.map(ex => ex.muscleGroup))).sort();
     
     const handleSave = () => {
-        if (exerciseName.trim()) {
+        if (exerciseName.trim() && selectedMuscleGroup) {
             const newExercise: Exercise = {
                 id: `custom-${Date.now()}`,
                 name: exerciseName.trim(),
-                muscleGroup: muscleGroup
+                muscleGroup: selectedMuscleGroup
             };
             onSave(newExercise);
         }
@@ -117,8 +123,18 @@ const CustomExerciseModal: React.FC<{
                 
                 <div className="mb-4">
                     <label className="block text-sm font-semibold text-brand-secondary-text mb-2">
-                        Muscle Group: <span className="text-brand-primary">{muscleGroup}</span>
+                        Muscle Group
                     </label>
+                    <select 
+                        value={selectedMuscleGroup} 
+                        onChange={e => setSelectedMuscleGroup(e.target.value)} 
+                        className="w-full p-3 rounded-lg bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    >
+                        <option value="">Select muscle group</option>
+                        {muscleGroups.map(group => (
+                            <option key={group} value={group}>{group}</option>
+                        ))}
+                    </select>
                 </div>
                 
                 <div className="mb-6">
@@ -144,7 +160,7 @@ const CustomExerciseModal: React.FC<{
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={!exerciseName.trim()}
+                        disabled={!exerciseName.trim() || !selectedMuscleGroup}
                         className="flex-1 py-3 bg-brand-primary hover:bg-brand-primary-dark text-brand-primary-text font-semibold rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Save Exercise
@@ -284,9 +300,8 @@ const NewWorkout: React.FC<{
     const [finishedWorkoutId, setFinishedWorkoutId] = useState<string | null>(null);
     const [isFinishing, setIsFinishing] = useState(false);
     
-    // New modal state management
-    const [modalState, setModalState] = useState<'closed' | 'muscle-group' | 'exercise' | 'custom-exercise'>('closed');
-    const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('');
+    // Modal state management
+    const [modalState, setModalState] = useState<'closed' | 'exercise' | 'custom-exercise'>('closed');
     const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
 
     const { addWorkout } = useWorkout();
@@ -339,11 +354,6 @@ const NewWorkout: React.FC<{
         
         fetchCustomExercises();
     }, [currentUser]);
-
-    const handleMuscleGroupSelect = (muscleGroup: string) => {
-        setSelectedMuscleGroup(muscleGroup);
-        setModalState('exercise');
-    };
 
     const addExerciseToSession = (exercise: Exercise) => {
         setModalState('closed');
@@ -427,17 +437,9 @@ const NewWorkout: React.FC<{
     return (
         <div>
             {/* Modals */}
-            {modalState === 'muscle-group' && (
-                <MuscleGroupSelectionModal 
-                    onSelect={handleMuscleGroupSelect} 
-                    onClose={() => setModalState('closed')} 
-                />
-            )}
             {modalState === 'exercise' && (
-                <ExerciseSelectionModal 
-                    muscleGroup={selectedMuscleGroup}
+                <UnifiedExerciseSelectionModal 
                     onSelect={addExerciseToSession}
-                    onBack={() => setModalState('muscle-group')}
                     onClose={() => setModalState('closed')}
                     onAddCustom={() => setModalState('custom-exercise')}
                     customExercises={customExercises}
@@ -445,7 +447,6 @@ const NewWorkout: React.FC<{
             )}
             {modalState === 'custom-exercise' && (
                 <CustomExerciseModal 
-                    muscleGroup={selectedMuscleGroup}
                     onSave={handleCustomExerciseSave}
                     onBack={() => setModalState('exercise')}
                     onClose={() => setModalState('closed')}
@@ -494,7 +495,7 @@ const NewWorkout: React.FC<{
                 />
             ))}
             
-            <button onClick={() => setModalState('muscle-group')} className="w-full mt-4 py-3 border-2 border-dashed border-brand-border hover:border-brand-primary text-brand-secondary-text hover:text-brand-primary font-bold rounded-lg transition-colors">
+            <button onClick={() => setModalState('exercise')} className="w-full mt-4 py-3 border-2 border-dashed border-brand-border hover:border-brand-primary text-brand-secondary-text hover:text-brand-primary font-bold rounded-lg transition-colors">
                 Add Exercise
             </button>
             <button 
