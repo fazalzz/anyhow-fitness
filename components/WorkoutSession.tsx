@@ -124,22 +124,31 @@ const CustomExerciseModal: React.FC<{
     onClose: () => void;
 }> = ({ onSave, onBack, onClose }) => {
     const [exerciseName, setExerciseName] = useState('');
-    const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('');
+    const [primaryMuscle, setPrimaryMuscle] = useState('');
+    const [secondaryMuscle1, setSecondaryMuscle1] = useState('');
+    const [secondaryMuscle2, setSecondaryMuscle2] = useState('');
     
-    // Get all unique muscle groups from primary muscles
+    // Get all unique muscle groups from primary muscles and secondary muscles
     const allMuscleGroups = new Set<string>();
     EXERCISES.forEach(ex => {
         allMuscleGroups.add(ex.primaryMuscle || ex.muscleGroup);
+        if (ex.secondaryMuscles) {
+            ex.secondaryMuscles.forEach(muscle => allMuscleGroups.add(muscle));
+        }
     });
     const muscleGroups = Array.from(allMuscleGroups).sort();
     
     const handleSave = () => {
-        if (exerciseName.trim() && selectedMuscleGroup) {
+        if (exerciseName.trim() && primaryMuscle) {
+            const secondaryMuscles = [secondaryMuscle1, secondaryMuscle2]
+                .filter(muscle => muscle && muscle !== primaryMuscle);
+            
             const newExercise: Exercise = {
                 id: `custom-${Date.now()}`,
                 name: exerciseName.trim(),
-                primaryMuscle: selectedMuscleGroup,
-                muscleGroup: selectedMuscleGroup
+                primaryMuscle: primaryMuscle,
+                secondaryMuscles: secondaryMuscles.length > 0 ? secondaryMuscles : undefined,
+                muscleGroup: primaryMuscle
             };
             onSave(newExercise);
         }
@@ -147,7 +156,7 @@ const CustomExerciseModal: React.FC<{
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-brand-surface rounded-lg p-6 w-full max-w-sm">
+            <div className="bg-brand-surface rounded-lg p-6 w-full max-w-md">
                 <div className="flex justify-between items-center mb-4">
                     <button onClick={onBack} className="text-xl">←</button>
                     <h3 className="text-xl font-semibold">Add Custom Exercise</h3>
@@ -155,22 +164,6 @@ const CustomExerciseModal: React.FC<{
                 </div>
                 
                 <div className="mb-4">
-                    <label className="block text-sm font-semibold text-brand-secondary-text mb-2">
-                        Muscle Group
-                    </label>
-                    <select 
-                        value={selectedMuscleGroup} 
-                        onChange={e => setSelectedMuscleGroup(e.target.value)} 
-                        className="w-full p-3 rounded-lg bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    >
-                        <option value="">Select muscle group</option>
-                        {muscleGroups.map(group => (
-                            <option key={group} value={group}>{group}</option>
-                        ))}
-                    </select>
-                </div>
-                
-                <div className="mb-6">
                     <label className="block text-sm font-semibold text-brand-secondary-text mb-2">
                         Exercise Name
                     </label>
@@ -183,6 +176,54 @@ const CustomExerciseModal: React.FC<{
                         autoFocus
                     />
                 </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-semibold text-brand-secondary-text mb-2">
+                        Primary Muscle Group
+                    </label>
+                    <select 
+                        value={primaryMuscle} 
+                        onChange={e => setPrimaryMuscle(e.target.value)} 
+                        className="w-full p-3 rounded-lg bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    >
+                        <option value="">Select primary muscle</option>
+                        {muscleGroups.map(group => (
+                            <option key={group} value={group}>{group}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-semibold text-brand-secondary-text mb-2">
+                        Secondary Muscle 1 (Optional)
+                    </label>
+                    <select 
+                        value={secondaryMuscle1} 
+                        onChange={e => setSecondaryMuscle1(e.target.value)} 
+                        className="w-full p-3 rounded-lg bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    >
+                        <option value="">Select secondary muscle</option>
+                        {muscleGroups.filter(group => group !== primaryMuscle).map(group => (
+                            <option key={group} value={group}>{group}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="mb-6">
+                    <label className="block text-sm font-semibold text-brand-secondary-text mb-2">
+                        Secondary Muscle 2 (Optional)
+                    </label>
+                    <select 
+                        value={secondaryMuscle2} 
+                        onChange={e => setSecondaryMuscle2(e.target.value)} 
+                        className="w-full p-3 rounded-lg bg-brand-surface-alt border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    >
+                        <option value="">Select secondary muscle</option>
+                        {muscleGroups.filter(group => group !== primaryMuscle && group !== secondaryMuscle1).map(group => (
+                            <option key={group} value={group}>{group}</option>
+                        ))}
+                    </select>
+                </div>
                 
                 <div className="flex space-x-3">
                     <button
@@ -193,7 +234,7 @@ const CustomExerciseModal: React.FC<{
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={!exerciseName.trim() || !selectedMuscleGroup}
+                        disabled={!exerciseName.trim() || !primaryMuscle}
                         className="flex-1 py-3 bg-brand-primary hover:bg-brand-primary-dark text-brand-primary-text font-semibold rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Save Exercise
