@@ -157,10 +157,11 @@ const CustomExerciseModal: React.FC<{
 
 const ExerciseCard: React.FC<{
     loggedExercise: LoggedExercise;
-    onLogSet: (loggedExerciseId: string, variation: 'Bilateral' | 'Unilateral', set: ExerciseSet) => void;
-    onUpdateBrand: (loggedExerciseId: string, brand: string) => void;
+    onLogSet: (exerciseId: string, variation: 'Bilateral' | 'Unilateral', newSet: ExerciseSet) => void;
+    onUpdateBrand: (exerciseId: string, brand: string) => void;
+    onRemove: (exerciseId: string) => void;
     customExercises: Exercise[];
-}> = ({ loggedExercise, onLogSet, onUpdateBrand, customExercises }) => {
+}> = ({ loggedExercise, onLogSet, onUpdateBrand, onRemove, customExercises }) => {
     const [variation, setVariation] = useState<'Bilateral' | 'Unilateral'>('Bilateral');
     const [weight, setWeight] = useState('');
     const [reps, setReps] = useState('');
@@ -202,7 +203,13 @@ const ExerciseCard: React.FC<{
     const setsForVariation = loggedExercise.variation === variation ? loggedExercise.sets : [];
 
     return (
-        <div className="bg-brand-surface p-4 rounded-lg mb-4">
+        <div className="bg-brand-surface p-4 rounded-lg mb-4 relative">
+            <button 
+                onClick={() => onRemove(loggedExercise.id)}
+                className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center font-bold text-sm transition-colors"
+            >
+                ×
+            </button>
             <div className="flex items-center mb-3">
                 <PlaceholderIcon />
                 <h3 className="text-lg font-semibold ml-3">{exerciseInfo.name}</h3>
@@ -374,6 +381,10 @@ const NewWorkout: React.FC<{
         setLoggedExercises(prev => prev.map(ex => ex.id === loggedExerciseId ? { ...ex, brand } : ex));
     };
 
+    const handleRemoveExercise = (loggedExerciseId: string) => {
+        setLoggedExercises(prev => prev.filter(ex => ex.id !== loggedExerciseId));
+    };
+
     const handleLogSet = (loggedExerciseId: string, variation: 'Bilateral' | 'Unilateral', set: ExerciseSet) => {
         setLoggedExercises(prev => {
             return prev.map(ex => {
@@ -478,6 +489,7 @@ const NewWorkout: React.FC<{
                     loggedExercise={ex}
                     onLogSet={handleLogSet}
                     onUpdateBrand={handleUpdateBrand}
+                    onRemove={handleRemoveExercise}
                     customExercises={customExercises}
                 />
             ))}
