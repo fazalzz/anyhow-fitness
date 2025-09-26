@@ -36,6 +36,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [sessionInfo, setSessionInfo] = useState<any>(null);
 
   // Form state
@@ -90,6 +91,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Check for existing Arkkies session on component mount
   useEffect(() => {
     const checkExistingSession = async () => {
+      setIsCheckingSession(true);
       try {
         const response = await apiArkkiesSessionStatus();
         
@@ -97,7 +99,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           setIsLoggedIn(true);
           setSessionInfo(response.data);
           setCurrentStep(2); // Skip login step
-          setSuccess(`Already logged in to Arkkies! (Since ${new Date(response.data.loginTime).toLocaleTimeString()})`);
+          setSuccess(`Already connected to Arkkies! (Since ${new Date(response.data.loginTime).toLocaleTimeString()})`);
           
           // Load outlets from API
           try {
@@ -108,14 +110,21 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           } catch (err) {
             console.error('Failed to load outlets:', err);
           }
+        } else {
+          setIsLoggedIn(false);
         }
       } catch (error) {
         console.error('Failed to check session status:', error);
+        setIsLoggedIn(false);
+      } finally {
+        setIsCheckingSession(false);
       }
     };
 
     if (token && currentUser) {
       checkExistingSession();
+    } else {
+      setIsCheckingSession(false);
     }
   }, [currentUser]);
 
@@ -566,6 +575,21 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return null;
     }
   };
+
+  // Show loading screen while checking session
+  if (isCheckingSession) {
+    return (
+      <div>
+        <div className="flex items-start justify-start mb-6">
+          <BackButton onClick={onBack} />
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-brand-secondary-text">Checking Arkkies session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
