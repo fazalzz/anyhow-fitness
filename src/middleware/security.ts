@@ -2,19 +2,16 @@ import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import slowDown from 'express-slow-down';
 import helmet from 'helmet';
-import mongoSanitize from 'express-mongo-sanitize';
-import xss from 'xss';
 
 // Rate limiting for authentication endpoints
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  max: 100, // INCREASED for development - limit each IP to 100 requests per windowMs
   message: {
     error: 'Too many authentication attempts, please try again in 15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip successful requests
   skipSuccessfulRequests: true,
 });
 
@@ -65,13 +62,21 @@ export const securityHeaders = helmet({
 });
 
 // Input sanitization middleware
-export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
-  // Remove any keys that contain '$' or '.' to prevent NoSQL injection
-  mongoSanitize.sanitize(req.body);
-  mongoSanitize.sanitize(req.query);
-  mongoSanitize.sanitize(req.params);
+export const sanitizeInput = (req: Request, res: Response, next: NextFunction): void => {
+  // Basic sanitization - remove any potential script tags
+  const sanitizeObject = (obj: any): void => {
+    if (typeof obj === 'object' && obj !== null) {
+      for (const key in obj) {
+        if (typeof obj[key] === 'string') {
+          // Remove script tags and other potentially dangerous content
+          obj[key] = obj[key].replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        } else if (typeof obj[key] === 'object') {
+          sanitizeObject(obj[key]);
+        }
+      }
+    }
+  };
 
-  // XSS protection for all string inputs
   if (req.body) {
     sanitizeObject(req.body);
   }
@@ -82,33 +87,17 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction) =
   next();
 };
 
-// Recursive function to sanitize all strings in an object
-const sanitizeObject = (obj: any): void => {
-  if (typeof obj === 'object' && obj !== null) {
-    for (const key in obj) {
-      if (typeof obj[key] === 'string') {
-        obj[key] = xss(obj[key], {
-          whiteList: {}, // No HTML tags allowed
-          stripIgnoreTag: true,
-          stripIgnoreTagBody: ['script']
-        });
-      } else if (typeof obj[key] === 'object') {
-        sanitizeObject(obj[key]);
-      }
-    }
-  }
-};
-
 // HTTPS enforcement middleware
-export const enforceHTTPS = (req: Request, res: Response, next: NextFunction) => {
+export const enforceHTTPS = (req: Request, res: Response, next: NextFunction): void => {
   if (process.env.NODE_ENV === 'production' && !req.secure && req.get('x-forwarded-proto') !== 'https') {
-    return res.redirect(301, `https://${req.get('host')}${req.url}`);
+    res.redirect(301, `https://${req.get('host')}${req.url}`);
+    return;
   }
   next();
 };
 
 // Security audit logging
-export const securityLogger = (req: Request, res: Response, next: NextFunction) => {
+export const securityLogger = (req: Request, res: Response, next: NextFunction): void => {
   const securityEvents = [
     '/api/auth/login',
     '/api/auth/register',
@@ -124,7 +113,7 @@ export const securityLogger = (req: Request, res: Response, next: NextFunction) 
 };
 
 // Detect suspicious activity
-export const suspiciousActivityDetector = (req: Request, res: Response, next: NextFunction) => {
+export const suspiciousActivityDetector = (req: Request, res: Response, next: NextFunction): void => {
   const suspiciousPatterns = [
     /(\$where|\$ne|\$gt|\$lt|\$gte|\$lte|\$in|\$nin|\$exists|\$regex)/i, // NoSQL injection
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, // XSS
@@ -132,12 +121,13 @@ export const suspiciousActivityDetector = (req: Request, res: Response, next: Ne
   ];
 
   const requestBody = JSON.stringify(req.body);
-  const requestQuery = JSON.stringify(req.query);
-  
+  const queryString = JSON.stringify(req.query);
+
   for (const pattern of suspiciousPatterns) {
-    if (pattern.test(requestBody) || pattern.test(requestQuery)) {
-      console.warn(`[SECURITY ALERT] Suspicious activity detected from IP: ${req.ip} - Pattern: ${pattern}`);
-      return res.status(400).json({ error: 'Invalid request format' });
+    if (pattern.test(requestBody) || pattern.test(queryString)) {
+      console.warn(`[SECURITY WARNING] Suspicious activity detected from IP ${req.ip} - Pattern: ${pattern}`);
+      res.status(400).json({ error: 'Invalid request detected' });
+      return;
     }
   }
 

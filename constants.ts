@@ -1,10 +1,10 @@
 import { FrontendUser as User, Exercise } from './types';
 
 export const INITIAL_USERS: User[] = [
-  { id: 'user1', username: 'alex', name: 'Alex', displayName: 'Alex', avatar: 'https://i.pravatar.cc/150?u=user1', pin: '12345678', phoneNumber: '91234567', isPrivate: false, is_private: false },
-  { id: 'user2', username: 'ben', name: 'Ben', displayName: 'Ben', avatar: 'https://i.pravatar.cc/150?u=user2', pin: '12345678', phoneNumber: '92345678', isPrivate: false, is_private: false },
-  { id: 'user3', username: 'casey', name: 'Casey', displayName: 'Casey', avatar: 'https://i.pravatar.cc/150?u=user3', pin: '12345678', phoneNumber: '93456789', isPrivate: false, is_private: false },
-  { id: 'user4', username: 'dana', name: 'Dana', displayName: 'Dana', avatar: 'https://i.pravatar.cc/150?u=user4', pin: '12345678', phoneNumber: '94567890', isPrivate: false, is_private: false },
+  { id: 'user1', username: 'alex', name: 'Alex', displayName: 'Alex', avatar: 'https://i.pravatar.cc/150?u=user1', pin: '12345678', email: 'alex@example.com', isPrivate: false, is_private: false },
+  { id: 'user2', username: 'ben', name: 'Ben', displayName: 'Ben', avatar: 'https://i.pravatar.cc/150?u=user2', pin: '12345678', email: 'ben@example.com', isPrivate: false, is_private: false },
+  { id: 'user3', username: 'casey', name: 'Casey', displayName: 'Casey', avatar: 'https://i.pravatar.cc/150?u=user3', pin: '12345678', email: 'casey@example.com', isPrivate: false, is_private: false },
+  { id: 'user4', username: 'dana', name: 'Dana', displayName: 'Dana', avatar: 'https://i.pravatar.cc/150?u=user4', pin: '12345678', email: 'dana@example.com', isPrivate: false, is_private: false },
 ];
 
 export const GYMS: string[] = [

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkout } from '../context/WorkoutContext';
-import { DumbbellIcon, ChartIcon, WeightIcon, GymIcon } from './icons';
+import { ChartIcon } from './icons';
 
 interface HomeProps {
   onNavigate: (view: string) => void;
@@ -14,14 +14,7 @@ interface CalendarDay {
   isCurrentMonth: boolean;
 }
 
-interface Shortcut {
-  id: string;
-  title: string;
-  description: string;
-  view: string;
-  image?: string;
-  icon?: React.FC;
-}
+
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const { currentUser } = useAuth();
@@ -65,7 +58,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
     
@@ -156,8 +148,9 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <button
               onClick={() => navigateMonth('prev')}
               className="p-1 text-brand-secondary-text hover:text-brand-primary"
+              aria-label="Previous month"
             >
-              ←
+              {'<'}
             </button>
             <span className="text-brand-primary font-medium">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
@@ -165,8 +158,9 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <button
               onClick={() => navigateMonth('next')}
               className="p-1 text-brand-secondary-text hover:text-brand-primary"
+              aria-label="Next month"
             >
-              →
+              {'>'}
             </button>
           </div>
         </div>
@@ -211,3 +205,4 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     </div>
   );
 };
+

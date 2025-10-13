@@ -9,7 +9,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
+    "jsx": "react",
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -21,6 +21,7 @@
   "include": [
     "*.tsx",
     "*.ts",
+    "types.d.ts",
     "apiClient.ts",
     "components/**/*",
     "hooks/**/*",
@@ -28,13 +29,11 @@
   ],
   "exclude": [
     "node_modules",
-    "src/controllers/**/*",
-    "src/routes/**/*",
-    "src/middleware/**/*",
-    "src/utils/**/*",
-    "src/config/**/*",
+    "src",
+    "functions/**/*",
     "migrations/**/*",
-    "ecosystem.config.js"
+    "ecosystem.config.js",
+    "server.js"
   ],
   "references": [
     { "path": "./tsconfig.node.json" }

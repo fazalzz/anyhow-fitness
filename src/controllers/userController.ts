@@ -1,100 +1,203 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
 import { db } from '../config/database';
-import { hashPin, comparePin } from '../utils/bcrypt';
 import { AuthRequest } from '../middleware/auth';
+import { mapUserToResponse } from '../utils/userMapper';
 
-export const getAllUsers = async (req: AuthRequest, res: Response) => {
+const normalizeString = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const ensureAuthenticatedUser = (req: AuthRequest, res: Response): number | null => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return null;
+  }
+
+  return Number(userId);
+};
+
+export const getAllUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const result = await db.query(
-      'SELECT id, display_name, phone_number, avatar, is_private, created_at FROM users'
+      `SELECT id, display_name, email, phone_number, is_private, avatar, created_at, updated_at
+         FROM users
+         ORDER BY display_name ASC`,
     );
-    // Transform field names for frontend
-    const transformedUsers = result.rows.map((user: any) => ({
-      id: user.id,
-      displayName: user.display_name,
-      avatar: user.avatar,
-      isPrivate: user.is_private,
-      phoneNumber: user.phone_number,
-      createdAt: user.created_at
-    }));
-    res.json(transformedUsers);
+
+    const users = result.rows.map(mapUserToResponse);
+    res.json(users);
   } catch (error) {
     console.error('Get all users error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-export const updateUser = async (req: AuthRequest, res: Response) => {
+export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user.id;
-    const { displayName, phoneNumber, avatar, isPrivate } = req.body;
-
-    console.log('Update user request:', { userId, displayName, phoneNumber, avatar, isPrivate });
-
-    const result = await db.query(
-      `UPDATE users 
-       SET display_name = COALESCE($1, display_name), 
-           phone_number = COALESCE($2, phone_number),
-           avatar = COALESCE($3, avatar),
-           is_private = COALESCE($4, is_private),
-           updated_at = NOW()
-       WHERE id = $5
-       RETURNING id, display_name, phone_number, avatar, is_private, created_at, updated_at`,
-      [displayName, phoneNumber, avatar, isPrivate, userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+    const userId = ensureAuthenticatedUser(req, res);
+    if (userId === null) {
+      return;
     }
 
-    const user = result.rows[0];
-    // Transform field names for frontend
-    const transformedUser = {
-      id: user.id,
-      displayName: user.display_name,
-      avatar: user.avatar,
-      isPrivate: user.is_private,
-      phoneNumber: user.phone_number,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
-    };
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let parameterIndex = 1;
 
-    console.log('User updated successfully:', transformedUser);
-    res.json(transformedUser);
+    const hasNameField = Object.prototype.hasOwnProperty.call(req.body, 'displayName')
+      || Object.prototype.hasOwnProperty.call(req.body, 'name');
+    if (hasNameField) {
+      const rawName = req.body.displayName ?? req.body.name;
+      const normalizedName = normalizeString(rawName);
+
+      if (!normalizedName) {
+        res.status(400).json({ error: 'Display name cannot be empty' });
+        return;
+      }
+
+      const nameCheck = await db.query(
+        'SELECT id FROM users WHERE display_name = $1 AND id <> $2 LIMIT 1',
+        [normalizedName, userId],
+      );
+
+      if (nameCheck.rows.length > 0) {
+        res.status(409).json({ error: 'Display name already in use' });
+        return;
+      }
+
+      updates.push(`display_name = $${parameterIndex++}`);
+      values.push(normalizedName);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'email')) {
+      const normalizedEmail = normalizeString(req.body.email)?.toLowerCase() ?? null;
+
+      if (normalizedEmail) {
+        const emailCheck = await db.query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2 LIMIT 1',
+          [normalizedEmail, userId],
+        );
+
+        if (emailCheck.rows.length > 0) {
+          res.status(409).json({ error: 'Email already in use' });
+          return;
+        }
+      }
+
+      updates.push(`email = $${parameterIndex++}`);
+      values.push(normalizedEmail);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'avatar')) {
+      const avatarValue = typeof req.body.avatar === 'string' ? req.body.avatar : null;
+      updates.push(`avatar = $${parameterIndex++}`);
+      values.push(avatarValue);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'isPrivate')) {
+      updates.push(`is_private = $${parameterIndex++}`);
+      values.push(Boolean(req.body.isPrivate));
+    }
+
+    if (updates.length === 0) {
+      res.status(400).json({ error: 'No valid fields provided for update' });
+      return;
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(userId);
+
+    const updateQuery = `UPDATE users
+      SET ${updates.join(', ')}
+      WHERE id = $${parameterIndex}
+      RETURNING id, display_name, email, phone_number, is_private, avatar, created_at, updated_at`;
+
+    const updated = await db.query(updateQuery, values);
+
+    if (updated.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const user = updated.rows[0];
+
+    res.json(mapUserToResponse(user));
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-export const changePin = async (req: AuthRequest, res: Response) => {
+export const searchUserByDisplayName = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user.id;
-    const { currentPin, newPin } = req.body;
+    const termRaw = typeof req.query.name === 'string' ? req.query.name : '';
+    const term = termRaw.trim();
 
-    // Get current PIN hash
-    const userResult = await db.query(
-      'SELECT pin_hash FROM users WHERE id = $1',
-      [userId]
+    if (!term) {
+      res.status(400).json({ error: 'Search term is required' });
+      return;
+    }
+
+    const result = await db.query(
+      `SELECT id, display_name, email, phone_number, is_private, avatar, created_at, updated_at
+         FROM users
+         WHERE LOWER(display_name) = LOWER($1)
+         LIMIT 1`,
+      [term],
     );
 
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json(mapUserToResponse(result.rows[0]));
+  } catch (error) {
+    console.error('Search user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const changePin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = ensureAuthenticatedUser(req, res);
+    if (userId === null) {
+      return;
+    }
+
+    const { currentPin, newPin } = req.body as { currentPin?: string; newPin?: string };
+
+    if (!currentPin || !newPin) {
+      res.status(400).json({ error: 'Current PIN and new PIN are required' });
+      return;
+    }
+
+    const userResult = await db.query('SELECT pin_hash FROM users WHERE id = $1', [userId]);
+
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    // Verify current PIN
-    const isPinValid = await comparePin(currentPin, userResult.rows[0].pin_hash);
-    if (!isPinValid) {
-      return res.status(401).json({ error: 'Incorrect current PIN' });
+    const user = userResult.rows[0];
+    const isCurrentValid = await bcrypt.compare(currentPin, user.pin_hash);
+
+    if (!isCurrentValid) {
+      res.status(401).json({ error: 'Current PIN is incorrect' });
+      return;
     }
 
-    // Hash new PIN
-    const newPinHash = await hashPin(newPin);
+    const newPinHash = await bcrypt.hash(newPin, 10);
 
-    // Update PIN
     await db.query(
-      'UPDATE users SET pin_hash = $1 WHERE id = $2',
-      [newPinHash, userId]
+      'UPDATE users SET pin_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newPinHash, userId],
     );
 
     res.json({ message: 'PIN changed successfully' });
@@ -104,36 +207,4 @@ export const changePin = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const searchUserByDisplayName = async (req: AuthRequest, res: Response) => {
-  try {
-    const { name } = req.query;
 
-    if (!name) {
-      return res.status(400).json({ error: 'Display name is required' });
-    }
-
-    const result = await db.query(
-      'SELECT id, display_name, phone_number, avatar, is_private, created_at FROM users WHERE display_name = $1',
-      [name]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const user = result.rows[0];
-    const transformedUser = {
-      id: user.id,
-      displayName: user.display_name,
-      avatar: user.avatar,
-      isPrivate: user.is_private,
-      phoneNumber: user.phone_number,
-      createdAt: user.created_at
-    };
-
-    res.json(transformedUser);
-  } catch (error) {
-    console.error('Search user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};

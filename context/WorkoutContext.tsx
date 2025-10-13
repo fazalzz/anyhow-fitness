@@ -2,6 +2,7 @@ import React, { createContext, useContext, ReactNode, useState, useEffect } from
 import { FrontendWorkout as Workout, FrontendPost as Post, FrontendBodyWeightEntry as BodyWeightEntry } from '../types';
 // @ts-ignore
 import * as api from '../apiClient';
+import { useAuth } from './AuthContext';
 
 interface WorkoutContextType {
   workouts: Workout[];
@@ -28,8 +29,25 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [posts, setPosts] = useState<Post[]>([]);
   const [bodyWeightEntries, setBodyWeightEntries] = useState<BodyWeightEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const { token, currentUser } = useAuth();
 
   useEffect(() => {
+    let isActive = true;
+
+    const resetData = () => {
+      setWorkouts([]);
+      setPosts([]);
+      setBodyWeightEntries([]);
+    };
+
+    if (!token || !currentUser) {
+      resetData();
+      setLoading(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
     const loadAllData = async () => {
       try {
         setLoading(true);
@@ -39,27 +57,43 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
           api.apiFetchBodyWeightEntries()
         ]);
 
+        if (!isActive) {
+          return;
+        }
+
         if (workoutResult.success && workoutResult.data) {
           setWorkouts(workoutResult.data);
+        } else if (workoutResult.status === 401) {
+          resetData();
+          return;
         }
+
         if (postsResult.success && postsResult.data) {
           setPosts(postsResult.data);
         }
+
         if (bodyWeightResult.success && bodyWeightResult.data) {
           setBodyWeightEntries(bodyWeightResult.data);
         }
       } catch (error) {
+        if (!isActive) {
+          return;
+        }
         console.error('Error loading data:', error);
-        setWorkouts([]);
-        setPosts([]);
-        setBodyWeightEntries([]);
+        resetData();
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
     loadAllData();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [token, currentUser]);
 
   const addWorkout = async (workout: Workout) => {
     try {

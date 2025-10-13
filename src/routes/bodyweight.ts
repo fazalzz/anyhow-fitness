@@ -7,7 +7,7 @@ const router = express.Router();
 // Get body weight entries for current authenticated user
 router.get('/', authenticateToken, async (req, res) => {
   const userId = (req as any).user.id;
-  req.params.userId = userId;
+  (req as any).params = { ...req.params, userId };
   return getUserBodyWeightEntries(req, res);
 });
 

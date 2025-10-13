@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "fayegym-e116b",
+    "dev": "fayegym-e116b"
+  },
+  "targets": {},
+  "etags": {}
+}

@@ -6,9 +6,48 @@ import type {
   ApiResponse
 } from './types';
 
-// @ts-ignore - Vite's env type
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+type LoginSuccessPayload = { user: User; accessToken: string; refreshToken: string };
+type LoginTwoFactorPayload = { twoFactorRequired: true; twoFactorToken: string; email: string; message?: string };
+
+// @ts-ignore - Vite's env type  
+// GOOGLE CLOUD RUN API URL (migrated from Firebase Functions)
+// Replace with your actual Cloud Run URL after deploy if different
+const normalizeApiRoot = (value?: string): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const withoutTrailingSlash = trimmed.replace(/\/$/, '');
+  return withoutTrailingSlash.endsWith('/api')
+    ? withoutTrailingSlash
+    : `${withoutTrailingSlash}/api`;
+};
+
+// IMPORTANT: Direct access for Vite replacement at build time
+// @ts-ignore - Vite will replace this at build time
+const DEFAULT_API_URL = 'https://anyhow-fitness-api-236180381075.us-central1.run.app/api';
+const API_URL = normalizeApiRoot(import.meta.env.VITE_API_URL) ?? DEFAULT_API_URL;
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
+
+type UpdatePinOptions = {
+  resetToken?: string;
+};
+
+// Optional quick health check helper
+export const apiHealth = async () => {
+  try {
+    const res = await fetch(`${API_URL}/health`, { method: 'GET', credentials: 'omit' });
+    const json = await res.json();
+    console.log('API health:', json);
+    return json;
+  } catch (e) {
+    console.warn('API health check failed:', e);
+    return null;
+  }
+};
 
 class ApiError extends Error {
   constructor(
@@ -88,9 +127,9 @@ const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout 
 
 // Handle API responses
 const handleResponse = async (response: Response) => {
-  let data;
+  let payload: any;
   try {
-    data = await response.json();
+    payload = await response.json();
   } catch (error) {
     throw new ApiError(
       response.status,
@@ -103,9 +142,9 @@ const handleResponse = async (response: Response) => {
     console.error('API Error:', {
       status: response.status,
       statusText: response.statusText,
-      data
+      data: payload
     });
-    
+
     // Handle specific error cases
     switch (response.status) {
       case 401:
@@ -115,45 +154,56 @@ const handleResponse = async (response: Response) => {
           if (refreshToken) {
             try {
               await refreshAuthToken();
-              // If refresh successful, we don't throw here - let the caller retry
-              return data;
+              // If refresh successful, let the caller retry
+              return payload;
             } catch (refreshError) {
-              // Refresh failed, clear tokens and redirect
+              // Refresh failed, clear tokens without forcing navigation
               localStorage.removeItem('accessToken');
               localStorage.removeItem('refreshToken');
-              window.location.href = '/login';
             }
           } else {
+            // No refresh token; clear tokens
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
           }
         }
         throw new ApiError(401, 'Unauthorized', 'Authentication required');
-        
+
       case 403:
         throw new ApiError(403, 'Forbidden', 'You do not have permission to perform this action');
-        
+
       case 404:
         throw new ApiError(404, 'Not Found', 'The requested resource was not found');
-        
+
       case 429:
         throw new ApiError(429, 'Too Many Requests', 'Please try again later');
-        
+
       case 500:
         throw new ApiError(500, 'Internal Server Error', 'An unexpected error occurred');
-        
+
       default:
         throw new ApiError(
           response.status,
           response.statusText,
-          data.error || 'An unexpected error occurred',
-          data
+          (payload && (payload.error || payload.message)) || 'An unexpected error occurred',
+          payload
         );
     }
   }
 
-  return data;
+  // Unwrap standard API envelope { success, data }
+  if (payload && typeof payload === 'object' && 'success' in payload) {
+    // If backend responded with success + data, return the inner data
+    if (payload.success && 'data' in payload) {
+      return payload.data;
+    }
+    // If success but no data field, return payload itself
+    if (payload.success) {
+      return payload;
+    }
+  }
+
+  return payload;
 };
 
 // Create request options with common configuration
@@ -185,9 +235,23 @@ const apiRequest = async <T>(
         if (error instanceof ApiError) {
           // Don't retry client errors except timeout
           if (error.status < 500 && error.status !== 408) {
-            throw error;
+            // Return the error as a failed response instead of throwing
+            return { 
+              success: false, 
+              error: error.message,
+              status: error.status,
+              data: error.data
+            };
           }
-          if (i === retries - 1) throw error;
+          if (i === retries - 1) {
+            // Last retry, return the error as a failed response
+            return { 
+              success: false, 
+              error: error.message,
+              status: error.status,
+              data: error.data
+            };
+          }
         } else {
           throw error;
         }
@@ -228,31 +292,45 @@ export const apiLogout = async (): Promise<ApiResponse<void>> => {
 };
 
 // Forgot Password API Functions
-export const apiRequestResetCode = async (email: string): Promise<ApiResponse<{message: string}>> => {
-  return apiRequest<{message: string}>(
+export const apiRequestResetCode = async (identifier: string): Promise<ApiResponse<{message: string; verificationCode?: string}>> => {
+  return apiRequest<{message: string; verificationCode?: string}>(
     '/auth/forgot-pin/request-code',
-    createRequestOptions('POST', { email })
+    createRequestOptions('POST', { identifier, email: identifier })
   );
 };
 
 export const apiResetPin = async (
-  email: string, 
-  code: string, 
+  identifier: string,
+  code: string,
   newPin: string
 ): Promise<ApiResponse<{message: string}>> => {
   return apiRequest<{message: string}>(
     '/auth/forgot-pin/reset',
-    createRequestOptions('POST', { email, code, newPin })
+    createRequestOptions('POST', { identifier, email: identifier, code, newPin })
   );
 };
 
 export const login = async (
   name: string,
-  pin: string
-): Promise<ApiResponse<{user: User; accessToken: string; refreshToken: string}>> => {
+  pin: string,
+  identifierOverride?: string
+): Promise<ApiResponse<LoginSuccessPayload | LoginTwoFactorPayload>> => {
+  // Backend selects searchValue = name || username || email
+  // If identifierOverride is provided, send email directly
+  const body: Record<string, any> = { pin };
+  if (identifierOverride) {
+    body.email = identifierOverride;
+    body.username = identifierOverride;
+  } else {
+    body.name = name;
+    if (name.includes('@')) {
+      body.email = name;
+    }
+  }
+
   const result = await apiRequest<{user: User; accessToken: string; refreshToken: string}>(
     '/auth/login',
-    createRequestOptions('POST', { name, pin })
+    createRequestOptions('POST', body)
   );
   
   if (result.success && result.data?.accessToken) {
@@ -261,21 +339,56 @@ export const login = async (
   }
 
   return result;
-};export const apiRegister = async (
-  name: string,
-  pin: string,
-  email: string
-): Promise<ApiResponse<{user: User; accessToken: string; refreshToken: string}>> => {
-  const result = await apiRequest<{user: User; accessToken: string; refreshToken: string}>(
-    '/auth/register',
-    createRequestOptions('POST', { name, pin, email })
+};
+
+export const apiVerifyTwoFactor = async (
+  token: string,
+  code: string
+): Promise<ApiResponse<LoginSuccessPayload>> => {
+  const payload = { token, code };
+  const result = await apiRequest<LoginSuccessPayload>(
+    '/auth/verify-2fa',
+    createRequestOptions('POST', payload)
   );
-  
+
   if (result.success && result.data?.accessToken) {
     localStorage.setItem('accessToken', result.data.accessToken);
     localStorage.setItem('refreshToken', result.data.refreshToken);
   }
-  
+
+  return result;
+};
+
+export const apiResendTwoFactor = async (
+  token: string
+): Promise<ApiResponse<{ twoFactorToken: string; email: string }>> => {
+  return apiRequest<{ twoFactorToken: string; email: string }>(
+    '/auth/resend-2fa',
+    createRequestOptions('POST', { token })
+  );
+};
+
+export const apiRegister = async (
+  name: string,
+  pin: string,
+  email: string
+): Promise<ApiResponse<{user: User; accessToken: string; refreshToken: string}>> => {
+  const payload: Record<string, unknown> = {
+    name,
+    pin,
+    email: email.trim(),
+  };
+
+  const result = await apiRequest<{user: User; accessToken: string; refreshToken: string}>(
+    '/auth/register',
+    createRequestOptions('POST', payload)
+  );
+
+  if (result.success && result.data?.accessToken) {
+    localStorage.setItem('accessToken', result.data.accessToken);
+    localStorage.setItem('refreshToken', result.data.refreshToken);
+  }
+
   return result;
 };
 
@@ -289,11 +402,18 @@ export const apiFindUserByName = async (name: string): Promise<ApiResponse<User>
 
 export const apiUpdateUserPin = async (
   userId: string,
-  newPin: string
+  newPin: string,
+  options: UpdatePinOptions = {}
 ): Promise<ApiResponse<boolean>> => {
+  const payload: Record<string, unknown> = { userId, newPin };
+
+  if (options.resetToken) {
+    payload.resetToken = options.resetToken;
+  }
+
   return apiRequest<boolean>(
     '/auth/pin',
-    createRequestOptions('PUT', { userId, newPin })
+    createRequestOptions('PUT', payload)
   );
 };
 
@@ -490,3 +610,7 @@ export const api = {
     return { data: response.data };
   }
 };
+
+
+
+

@@ -126,10 +126,6 @@ export const validationRules = {
     validate: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value)),
     message
   }),
-  phone: (message = 'Invalid phone number'): ValidationRule<string> => ({
-    validate: (value: string) => /^\d{8}$/.test(String(value)),
-    message
-  }),
   numeric: (message = 'Must be a number'): ValidationRule<string> => ({
     validate: (value: string) => /^\d+$/.test(String(value)),
     message

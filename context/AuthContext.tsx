@@ -2,17 +2,27 @@ import React, { createContext, useContext, ReactNode, useState, useEffect } from
 import { FrontendUser as User } from '../types';
 import * as api from '../apiClient';
 
+type LoginResult =
+  | { success: true }
+  | { success: false; error: string }
+  | { success: true; requiresTwoFactor: true; twoFactorToken: string; email: string; message?: string };
+
+type VerifyTwoFactorResult = { success: boolean; error?: string };
+type ResendTwoFactorResult = { success: boolean; twoFactorToken?: string; error?: string; email?: string };
+
 interface AuthContextType {
   currentUser: User | null;
   users: User[];
   loading: boolean;
   error: string | null;
   token: string | null;
-  login: (name: string, pin: string) => Promise<{ success: boolean; error?: string }>;
+  login: (name: string, pin: string, identifierOverride?: string) => Promise<LoginResult>;
+  verifyTwoFactor: (token: string, code: string) => Promise<VerifyTwoFactorResult>;
+  resendTwoFactor: (token: string) => Promise<ResendTwoFactorResult>;
   logout: () => void;
-  register: (name: string, pin: string, email: string) => Promise<{ success: boolean; error?: string }>;
-  requestResetCode: (email: string) => Promise<{ success: boolean; error?: string }>;
-  resetPin: (email: string, code: string, newPin: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, pin: string, email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  requestResetCode: (identifier: string) => Promise<{ success: boolean; error?: string; verificationCode?: string }>;
+  resetPin: (identifier: string, code: string, newPin: string) => Promise<{ success: boolean; error?: string }>;
   findUserByName: (name: string) => Promise<User | undefined>;
   updateUserPin: (userId: string, newPin: string) => Promise<void>;
   updateUser: (userId: string, updatedData: Partial<User>) => Promise<void>;
@@ -136,31 +146,89 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadUsers();
   }, [token]);
 
-  const login = async (name: string, pin: string) => {
+  const login = async (name: string, pin: string, identifierOverride?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const result = await api.login(name, pin);
-      
+      const result = await api.login(name, pin, identifierOverride);
+
       if (result.success && result.data) {
-        const { user, accessToken } = result.data;
-        if (!accessToken) {
-            throw new Error('No access token received from server');
+        const data = result.data as any;
+        if (data.twoFactorRequired) {
+          return {
+            success: true as const,
+            requiresTwoFactor: true as const,
+            twoFactorToken: data.twoFactorToken as string,
+            email: data.email as string,
+            message: data.message as string | undefined,
+          };
         }
-        
+
+        const { user, accessToken, refreshToken } = data;
+        if (!accessToken) {
+          throw new Error('No access token received from server');
+        }
+
         setCurrentUser(user);
         setToken(accessToken);
-        // Token is already stored by the API client
-        return { success: true };
+        if (refreshToken) {
+          localStorage.setItem('refreshToken', refreshToken);
+        }
+        return { success: true as const };
       } else {
         throw new Error(result.error || 'Login failed');
       }
     } catch (error: any) {
       const errorMessage = error.message || 'An error occurred during login';
       setError(errorMessage);
+      return { success: false as const, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  
+const verifyTwoFactor = async (twoFactorToken: string, code: string): Promise<VerifyTwoFactorResult> => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await api.apiVerifyTwoFactor(twoFactorToken, code);
+
+      if (result.success && result.data) {
+        const { user, accessToken, refreshToken } = result.data;
+        if (!accessToken) {
+          throw new Error('No access token received from server');
+        }
+        setCurrentUser(user);
+        setToken(accessToken);
+        if (refreshToken) {
+          localStorage.setItem('refreshToken', refreshToken);
+        }
+        return { success: true };
+      } else {
+        throw new Error(result.error || 'Verification failed');
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to verify two-factor code';
+      setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resendTwoFactor = async (twoFactorToken: string): Promise<ResendTwoFactorResult> => {
+    try {
+      setError(null);
+      const result = await api.apiResendTwoFactor(twoFactorToken);
+      if (result.success && result.data) {
+        return { success: true, twoFactorToken: result.data.twoFactorToken, email: result.data.email };
+      }
+      throw new Error(result.error || 'Unable to resend verification code');
+    } catch (error: any) {
+      const errorMessage = error.message || 'Unable to resend verification code';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -184,16 +252,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
       setError(null);
 
-      // Validate inputs
-      if (!name || !pin || !email) {
+      const trimmedName = name.trim();
+      const trimmedEmail = email.trim().toLowerCase();
+
+      if (!trimmedName || !pin || !trimmedEmail) {
         throw new Error('All fields are required');
+      }
+
+      if (!trimmedEmail.includes('@')) {
+        throw new Error('Please enter a valid email address');
       }
 
       if (pin.length < 4) {
         throw new Error('PIN must be at least 4 digits');
       }
 
-      const result = await api.apiRegister(name, pin, email);
+  const result = await api.apiRegister(trimmedName, pin, trimmedEmail);
       
       if (result.success && result.data) {
         const { user, accessToken } = result.data;
@@ -204,9 +278,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUsers(prev => [...prev, user]);
         setCurrentUser(user);
         setToken(accessToken);
-        // Token is already stored by the API client
+        if (result.data.refreshToken) {
+          localStorage.setItem('refreshToken', result.data.refreshToken);
+        }
         return { success: true };
       } else {
+        // If user already exists (409 error), try to login instead
+        if (result.status === 409) {
+          console.log('Auto-login retry: user already exists. Attempting to sign in...');
+          try {
+            // First try login with name + pin
+            let loginResult = await login(trimmedName, pin);
+            if (loginResult.success) {
+              if ((loginResult as any).requiresTwoFactor) {
+                console.log('Auto-login requires two-factor verification.');
+                return { success: true, message: 'User already exists - please verify your login via the emailed code.' };
+              }
+              console.log('Auto-login successful.');
+              return { success: true, message: 'User already exists - logged in successfully!' };
+            }
+            // If that failed, try with email identifier
+            console.log('Auto-login fallback: retrying with email.');
+            loginResult = await login(trimmedName, pin, trimmedEmail);
+            if (loginResult.success) {
+              if ((loginResult as any).requiresTwoFactor) {
+                console.log('Auto-login via email requires two-factor verification.');
+                return { success: true, message: 'Please verify your login via the emailed code.' };
+              }
+              console.log('Auto-login via email succeeded.');
+              return { success: true, message: 'Logged in successfully!' };
+            }
+            throw new Error('User already exists but login failed. Please check your PIN.');
+          } catch (loginError) {
+            console.error('Auto-login failed:', loginError);
+            throw new Error('User already exists but login failed. Please check your PIN.');
+          }
+        }
         throw new Error(result.error || 'Registration failed');
       }
     } catch (error: any) {
@@ -315,22 +422,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const requestResetCode = async (email: string) => {
+  const requestResetCode = async (identifier: string) => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!email) {
-        throw new Error('Email is required');
+      if (!identifier) {
+        throw new Error('Identifier is required');
       }
 
-      const result = await api.apiRequestResetCode(email);
-      
+      const result = await api.apiRequestResetCode(identifier);
+
       if (result.success) {
-        return { success: true };
-      } else {
-        throw new Error(result.error || 'Failed to send reset code');
+        return { success: true, verificationCode: result.data?.verificationCode };
       }
+
+      throw new Error(result.error || 'Failed to send reset code');
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to send reset code';
       setError(errorMessage);
@@ -340,12 +447,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const resetPin = async (email: string, code: string, newPin: string) => {
+  const resetPin = async (identifier: string, code: string, newPin: string) => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!email || !code || !newPin) {
+      if (!identifier || !code || !newPin) {
         throw new Error('All fields are required');
       }
 
@@ -353,13 +460,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error('PIN must be 8 digits');
       }
 
-      const result = await api.apiResetPin(email, code, newPin);
-      
+      const result = await api.apiResetPin(identifier, code, newPin);
+
       if (result.success) {
         return { success: true };
-      } else {
-        throw new Error(result.error || 'Failed to reset PIN');
       }
+
+      throw new Error(result.error || 'Failed to reset PIN');
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to reset PIN';
       setError(errorMessage);
@@ -377,6 +484,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       error, 
       token,
       login, 
+      verifyTwoFactor,
+      resendTwoFactor,
       logout, 
       register, 
       findUserByName, 

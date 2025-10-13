@@ -5,33 +5,21 @@ import { ActionButton } from './forms/ActionButton';
 import { FormInput } from './forms/FormInput';
 import Logo from './Logo';
 
-type View = 'LOGIN' | 'REGISTER' | 'FORGOT_PIN_NAME' | 'FORGOT_PIN_CODE' | 'FORGOT_PIN_RESET';
+type View = 'LOGIN' | 'REGISTER' | 'FORGOT_PIN_NAME' | 'FORGOT_PIN_CODE' | 'FORGOT_PIN_RESET' | 'TWO_FACTOR';
 
 interface FormFields {
   name: string;
   pin: string;
   confirmPin: string;
-  phoneNumber: string;
+  email: string;
   verificationCode: string;
 }
-
-const MOCK_VERIFICATION_CODE = '123456';
-
-
-/*const FayeLogoOld = () => (
-    <img 
-        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAACXBIWXMAACE4AAAhOAFFljFgAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAjLSURBVHja7d1rbtxIgebh9xSAyMsKyQpICshGoB0huEHKDkAGQkZARmBGoA6QHRDpCMgIyA5IBV9G4uLHST1GjBw58iXg46P/P5/nnFObtGmafr5+/wAAAFKa8L8DAAAkMIAAAJBAAAIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgIAQAICAEACAgIAQAICAEACAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIAQAICAEACAgBAAgIA-97AAAAAElFTkSuQmCC"
-        alt="Faye Logo" 
-        className="w-32 h-32 mx-auto mb-4"
-    />
-); */
-
 // Removed unused FayeLogoOld component
 
 interface LoginScreenProps {}
 
 const LoginScreen: React.FC<LoginScreenProps> = () => {
-  const { login, register, findUserByName, updateUserPin, loading, error: authError } = useAuth();
+  const { login, verifyTwoFactor, resendTwoFactor, register, findUserByName, requestResetCode, resetPin, loading, error: authError } = useAuth();
   
   // State
   const [view, setView] = useState<View>('LOGIN');
@@ -39,14 +27,19 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
     name: '',
     pin: '',
     confirmPin: '',
-    phoneNumber: '',
+    email: '',
     verificationCode: '',
     error: '',
     info: ''
   });
   const [userToRecover, setUserToRecover] = useState<User | null>(null);
 
-  const { name, pin, confirmPin, phoneNumber, verificationCode, error, info } = formState;
+  const [sentVerificationCode, setSentVerificationCode] = useState<string | null>(null);
+  const [resetIdentifier, setResetIdentifier] = useState<string | null>(null);
+
+  const [twoFactorState, setTwoFactorState] = useState<{ token: string; email: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const { name, pin, confirmPin, email, verificationCode, error, info } = formState;
 
   const updateFormField = (field: keyof FormFields, value: string) => {
     setFormState(prev => ({ ...prev, [field]: value }));
@@ -57,93 +50,230 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
       name: '',
       pin: '',
       confirmPin: '',
-      phoneNumber: '',
+      email: '',
       verificationCode: '',
       error: '',
       info: ''
     });
     setUserToRecover(null);
-  }
+    setSentVerificationCode(null);
+    setResetIdentifier(null);
+    setTwoFactorState(null);
+    setTwoFactorCode('');
+  };
   
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setFormState(prev => ({ ...prev, error: '' }));
-    const result = await login(name, pin);
-    if (!result.success) {
+    setFormState(prev => ({ ...prev, error: '', info: '' }));
+    setTwoFactorCode('');
+    setTwoFactorState(null);
+
+    const processLoginResult = (loginResult: any) => {
+      if (!loginResult.success) {
+        return false;
+      }
+
+      if (loginResult?.requiresTwoFactor) {
+        const details = loginResult as { twoFactorToken: string; email: string; message?: string };
+        setTwoFactorState({ token: details.twoFactorToken, email: details.email });
+        setTwoFactorCode('');
+        setFormState(prev => ({ ...prev, info: details.message ?? 'We emailed you a verification code.' }));
+        setView('TWO_FACTOR');
+        return true;
+      }
+
+      return true;
+    };
+
+    let result = await login(name, pin);
+
+    if (!processLoginResult(result)) {
+      const trimmedName = name.trim();
+      if (trimmedName.includes('@')) {
+        result = await login('', pin, trimmedName);
+        if (processLoginResult(result)) {
+          return;
+        }
+      }
+
       setFormState(prev => ({ ...prev, error: result.error || 'Login failed.' }));
     }
   };
 
+
   const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setFormState(prev => ({ ...prev, error: '' }));
-    if (!name.trim()) return setFormState(prev => ({ ...prev, error: 'Please enter a name.' }));
-    if (!/^\d{8}$/.test(phoneNumber)) return setFormState(prev => ({ ...prev, error: 'Phone number must be 8 digits.' }));
+    setFormState(prev => ({ ...prev, error: '', info: '' }));
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    if (!trimmedName) return setFormState(prev => ({ ...prev, error: 'Please enter a name.' }));
+    if (!trimmedEmail.includes('@')) return setFormState(prev => ({ ...prev, error: 'Please enter a valid email address.' }));
     if (pin.length !== 8) return setFormState(prev => ({ ...prev, error: 'PIN must be 8 digits.' }));
     if (pin !== confirmPin) return setFormState(prev => ({ ...prev, error: 'PINs do not match.' }));
     
-    await register(name, pin, phoneNumber);
+    const result = await register(trimmedName, pin, trimmedEmail);
+    if (result?.success) {
+      setFormState(prev => ({ ...prev, info: result.message ?? 'Logged in successfully!' }));
+    }
+  };
+
+  const handleTwoFactorVerify = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!twoFactorState) {
+      return;
+    }
+
+    if (!twoFactorCode.trim()) {
+      setFormState(prev => ({ ...prev, error: 'Please enter the verification code.' }));
+      return;
+    }
+
+    setFormState(prev => ({ ...prev, error: '' }));
+    const result = await verifyTwoFactor(twoFactorState.token, twoFactorCode.trim());
+    if (result.success) {
+      resetFormState();
+      setView('LOGIN');
+    } else {
+      setFormState(prev => ({ ...prev, error: result.error || 'Invalid verification code.' }));
+    }
+  };
+
+  const handleResendTwoFactor = async () => {
+    if (!twoFactorState) {
+      return;
+    }
+
+    const result = await resendTwoFactor(twoFactorState.token);
+    if (result.success && result.twoFactorToken) {
+      setTwoFactorState({ token: result.twoFactorToken, email: result.email || twoFactorState.email });
+      setTwoFactorCode('');
+      setFormState(prev => ({ ...prev, info: 'A new verification code has been sent to your email.', error: '' }));
+    } else if (result.error) {
+      setFormState(prev => ({ ...prev, error: result.error }));
+    }
   };
 
   const handleFindUser = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setFormState(prev => ({ ...prev, error: '' }));
+    setFormState(prev => ({ ...prev, error: '', info: '' }));
+
+    if (!name.trim()) {
+      setFormState(prev => ({ ...prev, error: 'Please enter a name.' }));
+      return;
+    }
+
     try {
-        const user = await findUserByName(name);
-        if (user && user.phoneNumber) {
-            setUserToRecover(user);
-            const maskedPhone = user.phoneNumber.slice(-4).padStart(8, '*');
-            setFormState(prev => ({
-              ...prev,
-              info: `Verification code sent to ${maskedPhone}. For this demo, your code is: ${MOCK_VERIFICATION_CODE}`
-            }));
-            setView('FORGOT_PIN_CODE');
-        } else {
-            setFormState(prev => ({ ...prev, error: 'No user found with that name.' }));
-        }
-    } catch (error) {
-        console.error('Error finding user:', error);
-        setFormState(prev => ({ ...prev, error: 'Unable to find user. Please try again.' }));
+      const user = await findUserByName(name.trim());
+      if (!user) {
+        setFormState(prev => ({ ...prev, error: 'No user found with that name.' }));
+        return;
+      }
+
+      const identifier = user.email || user.username || user.id;
+      if (!identifier) {
+        setFormState(prev => ({ ...prev, error: 'Unable to identify this user. Please contact support.' }));
+        return;
+      }
+
+      const resetResult = await requestResetCode(identifier);
+      if (!resetResult.success) {
+        setFormState(prev => ({ ...prev, error: resetResult.error || 'Unable to send verification code. Please try again.' }));
+        return;
+      }
+
+      setUserToRecover(user);
+      setResetIdentifier(identifier);
+      setSentVerificationCode(resetResult.verificationCode ?? null);
+
+      const maskedEmail = user.email ?? null;
+      const codeMessage = resetResult.verificationCode
+        ? ` For testing, your code is ${resetResult.verificationCode}.`
+        : '';
+
+      setFormState(prev => ({
+        ...prev,
+        info: maskedEmail
+          ? `Verification code sent to ${maskedEmail}.${codeMessage}`
+          : `Verification code sent.${codeMessage}`,
+        verificationCode: ''
+      }));
+      setView('FORGOT_PIN_CODE');
+    } catch (findError) {
+      console.error('Error finding user:', findError);
+      setFormState(prev => ({ ...prev, error: 'Unable to find user. Please try again.' }));
     }
   };
 
   const handleVerifyCode = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormState(prev => ({ ...prev, error: '' }));
-    if (verificationCode === MOCK_VERIFICATION_CODE) {
-        setFormState(prev => ({ ...prev, info: '' }));
-        setView('FORGOT_PIN_RESET');
-    } else {
-        setFormState(prev => ({ ...prev, error: 'Invalid verification code.' }));
+
+    if (!verificationCode.trim()) {
+      setFormState(prev => ({ ...prev, error: 'Please enter the verification code.' }));
+      return;
     }
+
+    if (sentVerificationCode && verificationCode.trim() !== sentVerificationCode) {
+      setFormState(prev => ({ ...prev, error: 'Invalid verification code.' }));
+      return;
+    }
+
+    setFormState(prev => ({ ...prev, info: '' }));
+    setView('FORGOT_PIN_RESET');
   };
 
   const handleResetPin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormState(prev => ({ ...prev, error: '' }));
-    if (!userToRecover) return setFormState(prev => ({ ...prev, error: 'An unexpected error occurred.' }));
-    if (pin.length !== 8) return setFormState(prev => ({ ...prev, error: 'New PIN must be 8 digits.' }));
-    if (pin !== confirmPin) return setFormState(prev => ({ ...prev, error: 'PINs do not match.' }));
 
-    await updateUserPin(userToRecover.id, pin);
-    resetFormState();
-    setView('LOGIN');
+    if (!resetIdentifier || !userToRecover) {
+      setFormState(prev => ({ ...prev, error: 'Please restart the reset process.' }));
+      return;
+    }
+
+    if (pin.length !== 8) {
+      setFormState(prev => ({ ...prev, error: 'New PIN must be 8 digits.' }));
+      return;
+    }
+
+    if (pin !== confirmPin) {
+      setFormState(prev => ({ ...prev, error: 'PINs do not match.' }));
+      return;
+    }
+
+    const result = await resetPin(resetIdentifier, verificationCode.trim(), pin);
+    if (result.success) {
+      resetFormState();
+      setFormState(prev => ({ ...prev, info: 'PIN updated successfully. Please log in with your new PIN.' }));
+      setView('LOGIN');
+    } else {
+      setFormState(prev => ({ ...prev, error: result.error || 'Failed to reset PIN.' }));
+    }
   };
 
   const changeView = (newView: View) => {
-      resetFormState();
-      setView(newView);
-  }
+    resetFormState();
+    setView(newView);
+  };
 
   const renderTitle = () => {
-      switch (view) {
-          case 'LOGIN': return 'Welcome Back';
-          case 'REGISTER': return 'Create Account';
-          case 'FORGOT_PIN_NAME': return 'Forgot PIN';
-          case 'FORGOT_PIN_CODE': return 'Verify Code';
-          case 'FORGOT_PIN_RESET': return 'Reset PIN';
-      }
-  }
+    switch (view) {
+      case 'LOGIN':
+        return 'Welcome Back';
+      case 'REGISTER':
+        return 'Create Account';
+      case 'FORGOT_PIN_NAME':
+        return 'Forgot PIN';
+      case 'FORGOT_PIN_CODE':
+        return 'Verify Code';
+      case 'FORGOT_PIN_RESET':
+        return 'Reset PIN';
+      case 'TWO_FACTOR':
+        return 'Two-Factor Verification';
+      default:
+        return 'Welcome Back';
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-brand-bg">
@@ -166,7 +296,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
         {view === 'REGISTER' && (
             <form onSubmit={handleRegister}>
                 <FormInput id="name" label="Name" type="text" value={name} onChange={(value) => updateFormField('name', value)} />
-                <FormInput id="phoneNumber" label="Phone Number" type="tel" value={phoneNumber} maxLength={8} onChange={(value) => updateFormField('phoneNumber', value)} />
+                <FormInput id="email" label="Email" type="email" value={email} onChange={(value) => updateFormField('email', value)} />
                 <FormInput id="pin" label="PIN (8 digits)" type="password" value={pin} maxLength={8} onChange={(value) => updateFormField('pin', value)} />
                 <FormInput id="confirmPin" label="Confirm PIN" type="password" value={confirmPin} maxLength={8} onChange={(value) => updateFormField('confirmPin', value)} />
                 <ActionButton loading={loading}>Register</ActionButton>
@@ -194,9 +324,16 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
                 <ActionButton loading={loading}>Reset PIN</ActionButton>
             </form>
         )}
-      </div>
 
-      <div className="mt-6 text-sm">
+        {view === 'TWO_FACTOR' && twoFactorState && (
+            <form onSubmit={handleTwoFactorVerify}>
+                <p className="text-sm text-brand-secondary-text mb-4">Enter the 6-digit code sent to <span className="font-semibold">{twoFactorState.email}</span>.</p>
+                <FormInput id="twoFactorCode" label="Verification Code" type="text" value={twoFactorCode} maxLength={6} onChange={(value) => setTwoFactorCode(value)} />
+                <ActionButton loading={loading}>Verify Code</ActionButton>
+                <button type="button" onClick={handleResendTwoFactor} className="mt-3 text-brand-secondary-text hover:text-brand-primary text-sm">Resend Code</button>
+            </form>
+        )}
+
         {view === 'LOGIN' && (
             <div className="flex justify-between w-64">
                 <button onClick={() => changeView('REGISTER')} className="text-brand-secondary-text hover:text-brand-primary">Register</button>
@@ -209,9 +346,20 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
         {(view === 'FORGOT_PIN_NAME' || view === 'FORGOT_PIN_CODE' || view === 'FORGOT_PIN_RESET') && (
             <button onClick={() => changeView('LOGIN')} className="text-brand-secondary-text hover:text-brand-primary">&larr; Back to Login</button>
         )}
+        {view === 'TWO_FACTOR' && (
+            <div className="flex flex-col items-center space-y-2">
+              <button onClick={() => handleResendTwoFactor()} className="text-brand-secondary-text hover:text-brand-primary">Didn't get a code? Resend</button>
+              <button onClick={() => changeView('LOGIN')} className="text-brand-secondary-text hover:text-brand-primary">&larr; Back to Login</button>
+            </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default LoginScreen;
+
+
+
+
+

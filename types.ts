@@ -15,7 +15,6 @@ export interface FrontendUser extends BaseUser {
   email: string;
   emailVerified?: boolean;
   // Keep for backward compatibility during migration
-  phoneNumber?: string;
 }
 
 // Exercise and workout related types

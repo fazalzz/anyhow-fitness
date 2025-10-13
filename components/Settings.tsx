@@ -5,7 +5,7 @@ import { BackButton } from './common';
 const AccountSettings: React.FC<{ onBack: () => void }> = () => {
     const { currentUser, updateUser, changePin, loading } = useAuth();
     const [newDisplayName, setNewDisplayName] = useState('');
-    const [newPhoneNumber, setNewPhoneNumber] = useState('');
+    const [newEmail, setNewEmail] = useState('');
     const [currentPin, setCurrentPin] = useState('');
     const [newPin, setNewPin] = useState('');
     const [confirmNewPin, setConfirmNewPin] = useState('');
@@ -18,7 +18,7 @@ const AccountSettings: React.FC<{ onBack: () => void }> = () => {
         if (currentUser) {
             console.log('AccountSettings: currentUser loaded', currentUser);
             setNewDisplayName(currentUser.displayName || '');
-            setNewPhoneNumber(currentUser.phoneNumber || '');
+            setNewEmail(currentUser.email || '');
         }
     }, [currentUser]);
 
@@ -61,21 +61,22 @@ const AccountSettings: React.FC<{ onBack: () => void }> = () => {
         }
     };
     
-    const handlePhoneChange = async (e: React.FormEvent) => {
+    const handleEmailChange = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
-        if (!/^\d{8}$/.test(newPhoneNumber)) {
-            return setError('Phone number must be 8 digits.');
+        const trimmedEmail = newEmail.trim();
+        if (!trimmedEmail.includes('@')) {
+            return setError('Please enter a valid email address.');
         }
-        if (newPhoneNumber === currentUser?.phoneNumber) {
-            return setError('Phone number is already set to this value.');
+        if (trimmedEmail === (currentUser?.email ?? '')) {
+            return setError('Email address is already set to this value.');
         }
         try {
-            await updateUser(currentUser.id, { phoneNumber: newPhoneNumber });
-            showSuccessMessage('Phone number updated successfully!');
+            await updateUser(currentUser.id, { email: trimmedEmail });
+            showSuccessMessage('Email address updated successfully!');
         } catch (error: any) {
-            setError(error.message || 'Failed to update phone number.');
+            setError(error.message || 'Failed to update email address.');
         }
     };
 
@@ -134,22 +135,21 @@ const AccountSettings: React.FC<{ onBack: () => void }> = () => {
                 </div>
             </form>
             
-            <form onSubmit={handlePhoneChange} className="mb-6">
-                <label className="block text-sm font-bold mb-2 text-brand-secondary-text">Phone Number</label>
+            <form onSubmit={handleEmailChange} className="mb-6">
+                <label className="block text-sm font-bold mb-2 text-brand-secondary-text">Email Address</label>
                 <div className="flex gap-2">
                     <input 
-                        type="tel" 
-                        value={newPhoneNumber} 
-                        onChange={e => setNewPhoneNumber(e.target.value)} 
-                        placeholder="12345678"
-                        maxLength={8} 
+                        type="email" 
+                        value={newEmail} 
+                        onChange={e => setNewEmail(e.target.value)} 
+                        placeholder="you@example.com"
                         className="flex-grow p-2 rounded bg-brand-surface-alt border border-brand-border text-brand-primary" 
                         disabled={loading} 
                     />
                     <button 
                         type="submit" 
                         className="px-4 py-2 bg-brand-primary text-brand-primary-text font-bold rounded disabled:bg-brand-surface-alt disabled:opacity-50" 
-                        disabled={loading || newPhoneNumber === currentUser?.phoneNumber}
+                        disabled={loading || newEmail.trim() === (currentUser?.email ?? '')}
                     >
                         {loading ? '...' : 'Save'}
                     </button>
@@ -236,9 +236,7 @@ const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         updateUser(currentUser.id, { isPrivate: e.target.checked });
     };
 
-    const maskedPhone = currentUser.phoneNumber 
-        ? currentUser.phoneNumber.slice(-4).padStart(currentUser.phoneNumber.length, '*')
-        : 'Not provided';
+    const maskedEmail = currentUser.email ? currentUser.email : 'Not provided';
 
     return (
         <div>
@@ -267,7 +265,8 @@ const Profile: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </button>
                     <div>
                         <h3 className="text-xl font-semibold">{currentUser.displayName}</h3>
-                        <p className="text-brand-secondary-text">Phone: {maskedPhone}</p>
+                        <p className="text-brand-secondary-text">Email: {maskedEmail}</p>
+                        <p className="text-brand-secondary-text text-sm">PIN: ••••••••</p>
                     </div>
                 </div>
             </div>

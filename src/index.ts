@@ -1,37 +1,56 @@
 import express, { Request, Response, NextFunction } from 'express';
-import cors from 'cors';
-// Load environment variables explicitly so compiled code (src/dist/src/index.js) can locate the root .env
-import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
 
-// Resolve .env at project root regardless of CWD when running compiled output
-(() => {
+import cors, { CorsOptions } from 'cors';
+
+// Load environment variables explicitly so compiled code can locate the root .env
+// But don't override existing environment variables (e.g., from Cloud Run)
+const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs');
+
+// Only load .env file if critical environment variables are not already set
+if (!process.env.DATABASE_URL || !process.env.NODE_ENV) {
+  // Resolve .env at project root regardless of CWD when running compiled output
   const candidates = [
-    // When running compiled file at src/dist/src/index.js
+    // When running compiled file at src/dist/index.js
     path.resolve(__dirname, '../../../.env'),
     // When running ts directly
     path.resolve(__dirname, '../.env'),
     // Fallback to current working directory
-    path.resolve(process.cwd(), '.env')
+    path.resolve(process.cwd(), '.env'),
   ];
+
   for (const p of candidates) {
     if (fs.existsSync(p)) {
+      console.log(`Loading environment from: ${p}`);
       dotenv.config({ path: p });
       break;
     }
   }
-})();
+} else {
+  console.log('Using existing environment variables (skipping .env file)');
+}
+
 import authRoutes from './routes/auth';
+
 import oauthRoutes from './routes/oauth';
+
 import userRoutes from './routes/users';
+
 import workoutRoutes from './routes/workouts';
+
 import postRoutes from './routes/posts';
+
 import bodyWeightRoutes from './routes/bodyweight';
+
 import friendshipRoutes from './routes/friendships';
+
 import arkkiesRoutes from './routes/arkkies';
+
 import gymRoutes from './routes/gyms';
+
 import setupRoutes from './routes/setup';
+
 import {
   securityHeaders,
   enforceHTTPS,
@@ -40,153 +59,257 @@ import {
   suspiciousActivityDetector,
   apiRateLimit,
   authRateLimit,
-  speedLimiter
+  speedLimiter,
 } from './middleware/security';
 
 const app = express();
-const PORT = process.env.PORT || 4000; // Always use 4000
+app.set('trust proxy', true);
 
-// Security middleware (applied first)
-app.use(enforceHTTPS);
-app.use(securityHeaders);
-app.use(securityLogger);
-app.use(suspiciousActivityDetector);
-app.use(speedLimiter);
+const PORT = parseInt(process.env.PORT || '4000');
 
-// Middleware
+// Comprehensive CORS setup for Google Cloud Run
+
+const PRIMARY_ORIGIN = 'https://fayegym-e116b.web.app';
+
+const DEFAULT_ALLOWED_ORIGINS = [
+  PRIMARY_ORIGIN,
+  'https://fayegym-e116b.firebaseapp.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+const configuredOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const normalizeOrigin = (value: string): string =>
+  value.trim().toLowerCase().replace(/\/$/, '');
+
+const allowedOrigins = new Set<string>(
+  [...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins].map(normalizeOrigin),
+);
+
+const resolveAllowedOrigin = (origin: string | undefined): string | false => {
+  if (!origin) {
+    return PRIMARY_ORIGIN;
+  }
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  if (allowedOrigins.has(normalizedOrigin)) {
+    return origin;
+  }
+
+  return false;
+};
+
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    const resolvedOrigin = resolveAllowedOrigin(origin);
+
+    if (resolvedOrigin !== false) {
+      return callback(null, resolvedOrigin);
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[cors] blocked origin: ${origin}`);
+    }
+
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'X-Client-Info',
+    'X-Client-Version',
+  ],
+  exposedHeaders: ['Content-Length'],
+  optionsSuccessStatus: 204,
+  maxAge: 86400,
+};
+
+app.use(cors(corsOptions));
+
+app.options('*', cors(corsOptions));
+
+// Basic middleware
+
+app.use(
+  express.json({
+    limit: '2mb',
+
+    type: 'application/json',
+  }),
+);
+
+app.use(
+  express.urlencoded({
+    extended: false,
+
+    limit: '2mb',
+
+    parameterLimit: 100,
+  }),
+);
+
+// Simple logging
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`${req.method} ${req.path}`);
+
   next();
 });
-
-// Add keep-alive headers for better performance
-app.use((req: Request, res: Response, next: NextFunction) => {
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Keep-Alive', 'timeout=5, max=1000');
-  next();
-});
-
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:4173',
-    'http://localhost:4174',
-    // Add environment variable for production frontend URL
-    ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
-    // Allow all vercel.app subdomains in production
-    /\.vercel\.app$/
-  ],
-  credentials: true
-}));
-
-// Body parsing with security limits
-app.use(express.json({ 
-  limit: '2mb', // Reduced from 10mb for security
-  type: 'application/json'
-}));
-app.use(express.urlencoded({ 
-  extended: false, 
-  limit: '2mb',
-  parameterLimit: 100 // Prevent parameter pollution
-}));
-
-// Input sanitization
-app.use(sanitizeInput);
 
 // Rate limiting
+
 app.use('/api', apiRateLimit);
 
 // Routes with specific rate limiting for auth
+
 app.use('/api/auth', authRateLimit, authRoutes);
+
 app.use('/auth', authRateLimit, oauthRoutes);
+
 app.use('/api/users', userRoutes);
+
 app.use('/api/workouts', workoutRoutes);
+
 app.use('/api/posts', postRoutes);
+
 app.use('/api/bodyweight', bodyWeightRoutes);
+
 app.use('/api/friendships', friendshipRoutes);
+
 app.use('/api/gyms', gymRoutes);
+
 app.use('/api/arkkies', arkkiesRoutes);
+
 app.use('/api/setup', setupRoutes);
 
 // Root endpoint
+
 app.get('/', (req: Request, res: Response) => {
-  res.json({ 
+  res.json({
     message: 'Anyhow Fitness API Server',
+
     endpoints: {
       auth: '/api/auth/login or /api/auth/register',
+
       health: '/api/health',
-      setup: 'POST /api/setup/init (initialize database)'
-    }
+
+      setup: 'POST /api/setup/init (initialize database)',
+    },
   });
 });
 
 // Health check endpoint
+
 app.get('/api/health', async (req: Request, res: Response) => {
   try {
     // Quick database health check to keep connections warm
-    const { db } = await import('./config/database');
-    const isHealthy = await db.healthCheck();
-    
-    res.json({ 
-      status: 'OK', 
+
+    const { healthCheck } = await import('./config/database');
+
+    const isHealthy = await healthCheck();
+
+    res.json({
+      status: 'OK',
+
       message: 'Server is running',
+
       database: isHealthy ? 'connected' : 'disconnected',
-      timestamp: new Date().toISOString()
+
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(503).json({ 
-      status: 'ERROR', 
+    res.status(503).json({
+      status: 'ERROR',
+
       message: 'Health check failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
 
 // Error handling middleware
+
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
+
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // 404 handler
+
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
 // Check required environment variables
+
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
-  console.error('Missing required environment variables:', missingEnvVars.join(', '));
+  console.error(
+    'Missing required environment variables:',
+    missingEnvVars.join(', '),
+  );
+
   process.exit(1);
 }
 
-// Start server
-const server = app.listen(PORT, () => {
-  console.log('=================================');
-  console.log(`Server running on port ${PORT}`);
-  console.log('Available endpoints:');
-  console.log('- GET  /');
-  console.log('- GET  /api/health');
-  console.log('- POST /api/auth/register');
-  console.log('- POST /api/auth/login');
-  console.log('=================================');
-});
+// Start server only if this file is run directly (not imported)
 
-// Handle server errors
-server.on('error', (error: any) => {
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use`);
-  } else {
-    console.error('Server error:', error);
-  }
-  process.exit(1);
-});
+if (require.main === module) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log('=================================');
 
-// Handle unhandled rejections
-process.on('unhandledRejection', (reason: any) => {
-  console.error('Unhandled Rejection:', reason);
-  // Don't exit here, just log it
-});
+    console.log(`Server running on port ${PORT}`);
+
+    console.log('Available endpoints:');
+
+    console.log('- GET  /');
+
+    console.log('- GET  /api/health');
+
+    console.log('- POST /api/auth/register');
+
+    console.log('- POST /api/auth/login');
+
+    console.log('=================================');
+  });
+
+  // Handle server errors
+
+  server.on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use`);
+    } else {
+      console.error('Server error:', error);
+    }
+
+    process.exit(1);
+  });
+
+  // Handle unhandled rejections
+
+  process.on('unhandledRejection', (reason: any) => {
+    console.error('Unhandled Rejection:', reason);
+
+    // Don't exit here, just log it
+  });
+}
+
+// Export the app for use in server.js
+
+export default app;
+
+module.exports = app;

@@ -1,3 +1,14 @@
+/// <reference types="vite/client" />
+
+declare interface ImportMetaEnv {
+  readonly VITE_API_URL: string;
+  // Add other env variables here as needed
+}
+
+declare interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 export interface BaseUser {
     id: string;
     name: string;
@@ -8,12 +19,16 @@ export interface BaseUser {
     isPrivate: boolean;
 }
 export interface FrontendUser extends BaseUser {
-    pin: string;
-    phoneNumber: string;
+    pin?: string;
+    email?: string;
+    emailVerified?: boolean;
 }
 export interface Exercise {
     id: string;
     name: string;
+    // Back-compat and extended typing for UI filtering
+    primaryMuscle?: string;
+    secondaryMuscles?: string[];
     muscleGroup: string;
 }
 export interface ExerciseSet {
@@ -91,3 +106,5 @@ export interface AuthResponse {
 export type Workout = FrontendWorkout;
 export type Post = FrontendPost;
 export type BodyWeightEntry = FrontendBodyWeightEntry;
+
+
