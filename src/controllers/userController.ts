@@ -27,7 +27,7 @@ const ensureAuthenticatedUser = (req: AuthRequest, res: Response): number | null
 export const getAllUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const result = await db.query(
-      `SELECT id, display_name, email, phone_number, is_private, avatar, created_at, updated_at
+      `SELECT id, display_name, email, is_private, avatar, created_at, updated_at
          FROM users
          ORDER BY display_name ASC`,
     );
@@ -117,7 +117,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
     const updateQuery = `UPDATE users
       SET ${updates.join(', ')}
       WHERE id = $${parameterIndex}
-      RETURNING id, display_name, email, phone_number, is_private, avatar, created_at, updated_at`;
+      RETURNING id, display_name, email, is_private, avatar, created_at, updated_at`;
 
     const updated = await db.query(updateQuery, values);
 
@@ -145,7 +145,7 @@ export const searchUserByDisplayName = async (req: AuthRequest, res: Response): 
     }
 
     const result = await db.query(
-      `SELECT id, display_name, email, phone_number, is_private, avatar, created_at, updated_at
+      `SELECT id, display_name, email, is_private, avatar, created_at, updated_at
          FROM users
          WHERE LOWER(display_name) = LOWER($1)
          LIMIT 1`,

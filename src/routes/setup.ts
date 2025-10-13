@@ -31,7 +31,6 @@ router.post('/init', async (req, res) => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         email VARCHAR(255),
-        phone_number VARCHAR(20),
         is_private BOOLEAN DEFAULT FALSE,
         avatar TEXT
       )

@@ -2,7 +2,6 @@
   id: number | string;
   display_name?: string | null;
   email?: string | null;
-  phone_number?: string | null;
   is_private?: boolean | null;
   avatar?: string | null;
   created_at?: Date | string | null;

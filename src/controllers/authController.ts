@@ -99,7 +99,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const pinHash = await hashPin(pin);
 
     const result = await db.query(
-      'INSERT INTO users (display_name, pin_hash, email) VALUES ($1, $2, $3) RETURNING id, display_name, email, phone_number, created_at',
+      'INSERT INTO users (display_name, pin_hash, email) VALUES ($1, $2, $3) RETURNING id, display_name, email, created_at',
       [normalizedName, pinHash, normalizedEmail],
     );
 
@@ -301,7 +301,7 @@ export const validateToken = async (req: AuthRequest, res: Response): Promise<vo
     
     // Optionally, fetch fresh user data from database
     const result = await db.query(
-      'SELECT id, display_name, email, phone_number FROM users WHERE id = $1',
+      'SELECT id, display_name, email FROM users WHERE id = $1',
       [user.id]
     );
 
@@ -342,7 +342,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     }
 
     const result = await db.query(
-      'SELECT id, display_name, email, phone_number FROM users WHERE id = $1',
+      'SELECT id, display_name, email FROM users WHERE id = $1',
       [decoded.id]
     );
 

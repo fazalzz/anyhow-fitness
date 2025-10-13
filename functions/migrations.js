@@ -10,7 +10,7 @@ const runInitialSchemaMigration = async () => {
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL UNIQUE,
-        phone_number VARCHAR(20) NOT NULL UNIQUE,
+        email VARCHAR(255) NOT NULL UNIQUE,
         pin_hash VARCHAR(255) NOT NULL,
         avatar TEXT,
         is_private BOOLEAN NOT NULL DEFAULT false,

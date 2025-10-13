@@ -51,6 +51,8 @@ import gymRoutes from './routes/gyms';
 
 import setupRoutes from './routes/setup';
 
+import migrationsRoutes from './routes/migrations';
+
 import {
   securityHeaders,
   enforceHTTPS,
@@ -190,6 +192,8 @@ app.use('/api/gyms', gymRoutes);
 app.use('/api/arkkies', arkkiesRoutes);
 
 app.use('/api/setup', setupRoutes);
+
+app.use('/api/migrations', migrationsRoutes);
 
 // Root endpoint
 
