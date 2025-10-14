@@ -7,12 +7,12 @@ export type EmailPayload = {
   html?: string;
 };
 
-const smtpHost = process.env.SMTP_HOST;
+const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
 const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-const smtpUser = process.env.SMTP_USER;
-const smtpPass = process.env.SMTP_PASS;
+const smtpUser = process.env.SMTP_USER || 'anyhowfitness@gmail.com';
+const smtpPass = process.env.SMTP_PASS || 'gwah mehq yyyd cxzh';
 const smtpSecure = process.env.SMTP_SECURE === 'true';
-const defaultFrom = process.env.EMAIL_FROM || 'no-reply@anyhow-fitness.com';
+const defaultFrom = process.env.EMAIL_FROM || 'anyhowfitness@gmail.com';
 
 const emailEnabled = Boolean(smtpHost && smtpUser && smtpPass);
 
