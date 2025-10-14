@@ -96,7 +96,8 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
         }
       }
 
-      setFormState(prev => ({ ...prev, error: result.error || 'Login failed.' }));
+      const errorMessage = !result.success ? result.error : 'Login failed.';
+      setFormState(prev => ({ ...prev, error: errorMessage }));
     }
   };
 
@@ -134,7 +135,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
       resetFormState();
       setView('LOGIN');
     } else {
-      setFormState(prev => ({ ...prev, error: result.error || 'Invalid verification code.' }));
+      setFormState(prev => ({ ...prev, error: result.error ?? 'Invalid verification code.' }));
     }
   };
 
@@ -149,7 +150,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
       setTwoFactorCode('');
       setFormState(prev => ({ ...prev, info: 'A new verification code has been sent to your email.', error: '' }));
     } else if (result.error) {
-      setFormState(prev => ({ ...prev, error: result.error }));
+      setFormState(prev => ({ ...prev, error: result.error ?? 'Unable to resend verification code.' }));
     }
   };
 
@@ -177,7 +178,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
 
       const resetResult = await requestResetCode(identifier);
       if (!resetResult.success) {
-        setFormState(prev => ({ ...prev, error: resetResult.error || 'Unable to send verification code. Please try again.' }));
+        setFormState(prev => ({ ...prev, error: resetResult.error ?? 'Unable to send verification code. Please try again.' }));
         return;
       }
 
@@ -247,7 +248,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
       setFormState(prev => ({ ...prev, info: 'PIN updated successfully. Please log in with your new PIN.' }));
       setView('LOGIN');
     } else {
-      setFormState(prev => ({ ...prev, error: result.error || 'Failed to reset PIN.' }));
+      setFormState(prev => ({ ...prev, error: result.error ?? 'Failed to reset PIN.' }));
     }
   };
 

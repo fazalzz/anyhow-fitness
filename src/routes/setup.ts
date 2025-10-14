@@ -160,6 +160,19 @@ router.post('/init', async (req, res) => {
       )
     `);
 
+    console.log('Creating user_arkkies_credentials table...');
+    await db.query(`
+      CREATE TABLE user_arkkies_credentials (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        email VARCHAR(255) NOT NULL,
+        password_encrypted TEXT NOT NULL,
+        session_cookie TEXT,
+        session_expires_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('Creating custom_exercises table...');
     await db.query(`
       CREATE TABLE custom_exercises (

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BackButton } from './common';
 import { useAuth } from '../context/AuthContext';
-import { 
-  apiArkkiesLogin, 
-  apiArkkiesSessionStatus, 
+import {
+  apiArkkiesLogin,
+  apiArkkiesSessionStatus,
   apiArkkiesOutlets,
-  apiArkkiesBookAndAccess
+  apiArkkiesBookAndAccess,
 } from '../apiClient';
 
 interface ArkkiesCredentials {
@@ -19,8 +19,17 @@ interface GymOutlet {
   location: string;
 }
 
+const PRESET_OUTLETS: GymOutlet[] = [
+  { id: 'AGRBGK01', name: 'Ark Grit • Buangkok', location: 'Buangkok' },
+  { id: 'AGRSRN01', name: 'Ark Grit • Serangoon North', location: 'Serangoon North' },
+  { id: 'AGRJUR01', name: 'Ark Grit • Jurong', location: 'Jurong' },
+  { id: 'AGRHUG01', name: 'Ark Grit • Hougang', location: 'Hougang' },
+  { id: 'AGRDTE01', name: 'Ark Grit • Downtown East', location: 'Downtown East' },
+];
+
 const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { currentUser, token } = useAuth();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -29,70 +38,81 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [, setSessionInfo] = useState<any>(null);
   const [showConnectedPopup, setShowConnectedPopup] = useState(false);
 
-  // Form state
   const [credentials, setCredentials] = useState<ArkkiesCredentials>({
     email: '',
-    password: ''
+    password: '',
   });
+
+  const [homeOutlet, setHomeOutlet] = useState('');
   const [targetOutlet, setTargetOutlet] = useState('');
+  const [doorId, setDoorId] = useState('');
 
-  // Real Arkkies gym outlets
-  const [outlets, setOutlets] = useState<GymOutlet[]>([
-    { id: 'AGRBGK01', name: 'Arkkies Buangkok', location: 'Buangkok' },
-    { id: 'AGRSRN01', name: 'Arkkies Serangoon North', location: 'Serangoon North' },
-    { id: 'AGRJUR01', name: 'Arkkies Jurong East', location: 'Jurong East' },
-    { id: 'AGRTPE01', name: 'Arkkies Toa Payoh East', location: 'Toa Payoh East' }
-  ]);
+  const [outlets, setOutlets] = useState<GymOutlet[]>(PRESET_OUTLETS);
 
-  // Check for existing Arkkies session on component mount
+  const defaultDoorFor = (outletId: string) => `${outletId}-D01`;
+
+  const applyDefaultOutlets = (list: GymOutlet[]) => {
+    if (!homeOutlet && list.length > 0) {
+      setHomeOutlet(list[0].id);
+    }
+    if (!targetOutlet && list.length > 0) {
+      setTargetOutlet(list[0].id);
+      setDoorId(defaultDoorFor(list[0].id));
+    }
+  };
+
+  useEffect(() => {
+    applyDefaultOutlets(outlets);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const checkExistingSession = async () => {
-      // Check local cache first for instant response
       const cachedSession = localStorage.getItem(`arkkies_session_${currentUser?.id}`);
       if (cachedSession) {
         try {
           const sessionData = JSON.parse(cachedSession);
-          // Check if cached session is less than 5 minutes old
           const cacheAge = Date.now() - sessionData.timestamp;
-          if (cacheAge < 5 * 60 * 1000) { // 5 minutes
+          if (cacheAge < 5 * 60 * 1000) {
             setIsLoggedIn(true);
             setSessionInfo(sessionData.data);
             setShowConnectedPopup(true);
             setIsCheckingSession(false);
             return;
           }
-        } catch (e) {
-          // Invalid cache, continue with API call
+        } catch {
+          // ignore invalid cache
         }
       }
 
       setIsCheckingSession(true);
       try {
         const response = await apiArkkiesSessionStatus();
-        
+
         if (response.success && response.data) {
           setIsLoggedIn(true);
           setSessionInfo(response.data);
           setShowConnectedPopup(true);
-          
-          // Cache the session for 5 minutes
-          localStorage.setItem(`arkkies_session_${currentUser?.id}`, JSON.stringify({
-            data: response.data,
-            timestamp: Date.now()
-          }));
-          
-          // Load outlets from API
+
+          localStorage.setItem(
+            `arkkies_session_${currentUser?.id}`,
+            JSON.stringify({
+              data: response.data,
+              timestamp: Date.now(),
+            }),
+          );
+
           try {
             const outletsResponse = await apiArkkiesOutlets();
-            if (outletsResponse.success && outletsResponse.data) {
+            if (outletsResponse.success && Array.isArray(outletsResponse.data)) {
               setOutlets(outletsResponse.data);
+              applyDefaultOutlets(outletsResponse.data);
             }
           } catch (err) {
             console.error('Failed to load outlets:', err);
           }
         } else {
           setIsLoggedIn(false);
-          // Clear any stale cache
           localStorage.removeItem(`arkkies_session_${currentUser?.id}`);
         }
       } catch (error) {
@@ -109,7 +129,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } else {
       setIsCheckingSession(false);
     }
-  }, [currentUser]);
+  }, [currentUser, token]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,23 +138,25 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
       const response = await apiArkkiesLogin(credentials);
-      
+
       if (response.success) {
         setIsLoggedIn(true);
         setSessionInfo(response.data);
         setSuccess('Successfully connected to Arkkies!');
-        
-        // Cache the fresh session
-        localStorage.setItem(`arkkies_session_${currentUser?.id}`, JSON.stringify({
-          data: response.data,
-          timestamp: Date.now()
-        }));
-        
-        // Load outlets from API
+
+        localStorage.setItem(
+          `arkkies_session_${currentUser?.id}`,
+          JSON.stringify({
+            data: response.data,
+            timestamp: Date.now(),
+          }),
+        );
+
         try {
           const outletsResponse = await apiArkkiesOutlets();
-          if (outletsResponse.success && outletsResponse.data) {
+          if (outletsResponse.success && Array.isArray(outletsResponse.data)) {
             setOutlets(outletsResponse.data);
+            applyDefaultOutlets(outletsResponse.data);
           }
         } catch (err) {
           console.error('Failed to load outlets:', err);
@@ -142,7 +164,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       } else {
         setError(response.error || 'Failed to login to Arkkies. Please check your credentials.');
       }
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to connect to Arkkies. Please try again.');
     } finally {
       setLoading(false);
@@ -150,8 +172,13 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const handleDoorAccess = async () => {
+    if (!homeOutlet) {
+      setError('Please select your home outlet first.');
+      return;
+    }
+
     if (!targetOutlet) {
-      setError('Please select a gym location first.');
+      setError('Please select a destination outlet.');
       return;
     }
 
@@ -161,24 +188,23 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
       const response = await apiArkkiesBookAndAccess({
-        homeOutletId: targetOutlet, // Use same outlet for simplicity
+        homeOutletId: homeOutlet,
         targetOutletId: targetOutlet,
-        selectedDoor: 'Main Entrance'
+        doorId: doorId || defaultDoorFor(targetOutlet),
       });
 
       if (response.success) {
-        setSuccess(`🚪 Door opened successfully! Enjoy your workout! 💪`);
+        setSuccess('Door opened successfully! Enjoy your workout!');
       } else {
         setError(response.error || 'Failed to open door. Please try again.');
       }
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to connect to gym access system. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Show loading screen while checking session
   if (isCheckingSession) {
     return (
       <div className="min-h-screen bg-brand-bg text-brand-primary p-4">
@@ -186,7 +212,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <BackButton onClick={onBack} />
         </div>
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4" />
           <p className="text-brand-secondary-text">Checking Arkkies session...</p>
         </div>
       </div>
@@ -199,19 +225,18 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <BackButton onClick={onBack} />
       </div>
 
-      {/* Dismissible Connected Popup */}
       {showConnectedPopup && (
         <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-2 h-2 bg-green-300 rounded-full mr-2"></div>
+              <div className="w-2 h-2 bg-green-300 rounded-full mr-2" />
               <span className="text-sm font-medium">Connected to Arkkies</span>
             </div>
-            <button 
+            <button
               onClick={() => setShowConnectedPopup(false)}
               className="ml-4 text-green-200 hover:text-white"
             >
-              ✕
+              x
             </button>
           </div>
         </div>
@@ -220,9 +245,8 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="max-w-md mx-auto">
         <div className="bg-brand-surface rounded-lg p-6">
           <h2 className="text-xl font-bold mb-4 text-center">Gym Access</h2>
-          
+
           {!isLoggedIn ? (
-            // Login Form
             <div>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
@@ -230,7 +254,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <input
                     type="email"
                     value={credentials.email}
-                    onChange={(e) => setCredentials({...credentials, email: e.target.value})}
+                    onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
                     className="w-full p-3 rounded-lg bg-brand-bg border border-brand-border text-brand-primary focus:border-blue-500 focus:outline-none"
                     required
                   />
@@ -240,7 +264,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <input
                     type="password"
                     value={credentials.password}
-                    onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+                    onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                     className="w-full p-3 rounded-lg bg-brand-bg border border-brand-border text-brand-primary focus:border-blue-500 focus:outline-none"
                     required
                   />
@@ -255,17 +279,16 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </form>
             </div>
           ) : (
-            // Main Gym Access Interface
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-brand-secondary mb-2 text-sm">Gym Location</label>
+                  <label className="block text-brand-secondary mb-2 text-sm">Home Outlet</label>
                   <select
-                    value={targetOutlet}
-                    onChange={(e) => setTargetOutlet(e.target.value)}
+                    value={homeOutlet}
+                    onChange={(e) => setHomeOutlet(e.target.value)}
                     className="w-full p-3 rounded-lg bg-brand-bg border border-brand-border text-brand-primary focus:border-blue-500 focus:outline-none"
                   >
-                    <option value="">Select gym location</option>
+                    <option value="">Select home outlet</option>
                     {outlets.map((outlet) => (
                       <option key={outlet.id} value={outlet.id}>
                         {outlet.name}
@@ -273,14 +296,49 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-brand-secondary mb-2 text-sm">Destination Outlet</label>
+                  <select
+                    value={targetOutlet}
+                    onChange={(e) => {
+                      setTargetOutlet(e.target.value);
+                      setDoorId(defaultDoorFor(e.target.value));
+                    }}
+                    className="w-full p-3 rounded-lg bg-brand-bg border border-brand-border text-brand-primary focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">Select destination outlet</option>
+                    {outlets.map((outlet) => (
+                      <option key={outlet.id} value={outlet.id}>
+                        {outlet.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-brand-secondary mb-2 text-sm">
+                    Door Identifier (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={doorId}
+                    onChange={(e) => setDoorId(e.target.value)}
+                    placeholder="e.g. AGRBGK01-D01"
+                    className="w-full p-3 rounded-lg bg-brand-bg border border-brand-border text-brand-primary focus:border-blue-500 focus:outline-none"
+                  />
+                  <p className="text-xs text-brand-secondary-text mt-1">
+                    We will default to &quot;&lt;destination&gt;-D01&quot; if left blank.
+                  </p>
+                </div>
               </div>
 
               <button
                 onClick={handleDoorAccess}
-                disabled={loading || !targetOutlet}
+                disabled={loading || !homeOutlet || !targetOutlet}
                 className="w-full bg-brand-primary text-brand-primary-text p-4 rounded-lg font-bold hover:bg-brand-secondary disabled:opacity-50 transition-colors text-lg"
               >
-                {loading ? 'Opening Door...' : '🚪 Open Door'}
+                {loading ? 'Opening Door...' : 'Open Door'}
               </button>
 
               {error && (
@@ -301,7 +359,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       <div className="mt-8 text-center">
         <p className="text-xs text-brand-secondary-text">
-          🔒 Your Arkkies credentials are encrypted and stored securely
+          Your Arkkies credentials are encrypted and stored securely
         </p>
       </div>
     </div>
