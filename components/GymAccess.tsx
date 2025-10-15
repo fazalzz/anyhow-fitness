@@ -133,6 +133,16 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   }, [currentUser, token]);
 
+  const forceReLogin = () => {
+    // Clear all cached session data
+    localStorage.removeItem(`arkkies_session_${currentUser?.id}`);
+    setIsLoggedIn(false);
+    setSessionInfo(null);
+    setError('');
+    setSuccess('');
+    setCredentials({ email: '', password: '' });
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -349,6 +359,13 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 className="w-full bg-brand-primary text-brand-primary-text p-4 rounded-lg font-bold hover:bg-brand-secondary disabled:opacity-50 transition-colors text-lg"
               >
                 {loading ? 'Opening Door...' : 'Open Door'}
+              </button>
+
+              <button
+                onClick={forceReLogin}
+                className="w-full bg-red-600 text-white p-2 rounded-lg font-medium hover:bg-red-700 transition-colors text-sm mt-2"
+              >
+                Force Re-login to Arkkies
               </button>
 
               {error && (
