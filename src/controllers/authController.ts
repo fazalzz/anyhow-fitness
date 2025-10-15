@@ -16,7 +16,7 @@ const TWO_FACTOR_EXPIRY_SECONDS = parseInt(process.env.TWO_FACTOR_EXPIRY_SECONDS
 
 const generateTwoFactorCode = (): string => Math.floor(100000 + Math.random() * 900000).toString();
 
-const createTwoFactorSession = async (user: any): Promise<{ token: string }> => {
+const createTwoFactorSession = async (user: any): Promise<{ token: string; debugCode?: string }> => {
   if (!user.email) {
     throw new Error('User does not have an email configured');
   }
@@ -34,11 +34,17 @@ const createTwoFactorSession = async (user: any): Promise<{ token: string }> => 
 
   try {
     await sendTwoFactorCodeEmail(user.email, code, Math.ceil(TWO_FACTOR_EXPIRY_SECONDS / 60));
+    if (process.env.TWO_FACTOR_DEBUG === 'true') {
+      console.info(`[2FA][DEBUG] Verification code for ${user.email}: ${code}`);
+    }
   } catch (emailError) {
     console.error('Failed to send two-factor email:', emailError);
   }
 
-  return { token };
+  return {
+    token,
+    debugCode: process.env.TWO_FACTOR_DEBUG === 'true' ? code : undefined,
+  };
 };
 
 const cleanupTwoFactorSessions = async (): Promise<void> => {
@@ -172,13 +178,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     await cleanupTwoFactorSessions();
-    const { token } = await createTwoFactorSession(user);
+    const { token, debugCode } = await createTwoFactorSession(user);
 
     res.json({
       message: 'Verification code sent to your email address',
       twoFactorRequired: true,
       twoFactorToken: token,
       email: user.email,
+      debugCode,
     });
   } catch (error) {
     console.error('Login error:', error);

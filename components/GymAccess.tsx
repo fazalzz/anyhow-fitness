@@ -73,7 +73,7 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         try {
           const sessionData = JSON.parse(cachedSession);
           const cacheAge = Date.now() - sessionData.timestamp;
-          if (cacheAge < 5 * 60 * 1000) {
+          if (cacheAge < 5 * 60 * 1000 && sessionData.data && sessionData.data.valid) {
             setIsLoggedIn(true);
             setSessionInfo(sessionData.data);
             setShowConnectedPopup(true);
@@ -83,13 +83,15 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         } catch {
           // ignore invalid cache
         }
+        // Clear invalid or expired cache
+        localStorage.removeItem(`arkkies_session_${currentUser?.id}`);
       }
 
       setIsCheckingSession(true);
       try {
         const response = await apiArkkiesSessionStatus();
 
-        if (response.success && response.data) {
+        if (response.success && response.data && response.data.valid) {
           setIsLoggedIn(true);
           setSessionInfo(response.data);
           setShowConnectedPopup(true);
@@ -196,7 +198,15 @@ const GymAccess: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       if (response.success) {
         setSuccess('Door opened successfully! Enjoy your workout!');
       } else {
-        setError(response.error || 'Failed to open door. Please try again.');
+        // Check if this is a credentials issue
+        if (response.error?.includes('connect to Arkkies first') || 
+            (response as any).requiresArkkiesLogin) {
+          setIsLoggedIn(false);
+          localStorage.removeItem(`arkkies_session_${currentUser?.id}`);
+          setError('Your Arkkies session has expired. Please log in again.');
+        } else {
+          setError(response.error || 'Failed to open door. Please try again.');
+        }
       }
     } catch (err) {
       setError('Failed to connect to gym access system. Please try again.');

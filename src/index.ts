@@ -65,7 +65,8 @@ import {
 } from './middleware/security';
 
 const app = express();
-app.set('trust proxy', true);
+// Trust only the first proxy hop (e.g., Cloud Run / reverse proxies) so rate limiters get a stable client IP.
+app.set('trust proxy', 1);
 
 const PORT = parseInt(process.env.PORT || '4000');
 

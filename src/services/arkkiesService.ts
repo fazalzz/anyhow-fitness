@@ -360,19 +360,51 @@ const ensureActiveItemIds = async (jar: CookieJar, outletId: string): Promise<st
 
   const endpoints = ['/customer/subscription/active', '/customer/pass/active'];
 
+  console.log(`🔍 Checking for active passes/subscriptions for outlet: ${outletId}`);
+
+  // Try the specified outlet first
   for (const endpoint of endpoints) {
     try {
+      console.log(`📡 Fetching from ${endpoint} with outlet header: ${outletId}`);
       const { data } = await fetchJson<ActiveItemList>(jar, endpoint, { outletHeader: outletId });
-      extractItemIds(data).forEach((id) => collected.add(id));
+      const itemIds = extractItemIds(data);
+      console.log(`✅ Found ${itemIds.length} items from ${endpoint}:`, itemIds);
+      itemIds.forEach((id) => collected.add(id));
     } catch (error) {
-      // Continue if one of the endpoints is unavailable
-      // eslint-disable-next-line no-console
-      console.warn(`Failed to load Arkkies active items from ${endpoint}:`, (error as Error).message);
+      console.warn(`❌ Failed to load Arkkies active items from ${endpoint} (outlet: ${outletId}):`, (error as Error).message);
     }
   }
 
+  // If no items found with the specified outlet, try with other common outlets
   if (collected.size === 0) {
-    throw new Error('No active Arkkies passes or subscriptions found for this account');
+    const alternativeOutlets = ['AGRBGK01', 'AGROTH01', 'AGRPE01', 'AGRSIM01']; // Common Arkkies outlets
+    const outletsToTry = alternativeOutlets.filter(outlet => outlet !== outletId);
+    
+    console.log(`🔄 No items found for ${outletId}, trying alternative outlets: ${outletsToTry.join(', ')}`);
+    
+    for (const altOutlet of outletsToTry) {
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`📡 Fetching from ${endpoint} with alternative outlet: ${altOutlet}`);
+          const { data } = await fetchJson<ActiveItemList>(jar, endpoint, { outletHeader: altOutlet });
+          const itemIds = extractItemIds(data);
+          if (itemIds.length > 0) {
+            console.log(`✅ Found ${itemIds.length} items from ${endpoint} (outlet: ${altOutlet}):`, itemIds);
+            itemIds.forEach((id) => collected.add(id));
+            break; // Found items, stop trying other outlets for this endpoint
+          }
+        } catch (error) {
+          console.warn(`❌ Failed to load Arkkies active items from ${endpoint} (outlet: ${altOutlet}):`, (error as Error).message);
+        }
+      }
+      if (collected.size > 0) break; // Found items, stop trying other outlets
+    }
+  }
+
+  console.log(`📊 Total active items found: ${collected.size}`, Array.from(collected));
+
+  if (collected.size === 0) {
+    throw new Error(`No active Arkkies passes or subscriptions found for this account (outlet: ${outletId}). Please ensure you have an active membership for this location.`);
   }
 
   return Array.from(collected);
@@ -494,6 +526,7 @@ export const bookSlotAndUnlockDoor = async ({
 
   const { data: unlockData } = await fetchJson<any>(jar, '/brand/outlet/door/unlock', {
     method: 'PUT',
+    outletHeader: destinationOutletId,
     body: JSON.stringify({
       door_id: doorIdentifier,
     }),
@@ -518,4 +551,6 @@ export const listSupportedOutlets = (): Array<{ id: string; name: string; region
   { id: 'AGRDTE01', name: 'Ark Grit • Downtown East' },
   { id: 'AGRWLN01', name: 'Ark Grit • Woodlands' },
 ];
+
+
 

@@ -93,6 +93,8 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response): Promise
       doorId?: string;
     };
 
+    console.log(`🏃‍♂️ Booking request - User: ${userId}, Home: ${homeOutletId}, Target: ${targetOutletId}, Door: ${doorId}`);
+
     if (!homeOutletId || !targetOutletId) {
       res.status(400).json({ success: false, error: 'homeOutletId and targetOutletId are required' });
       return;
@@ -108,9 +110,40 @@ export const bookAndAccessGym = async (req: AuthRequest, res: Response): Promise
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('Book and access gym error:', error);
-    res.status(500).json({ success: false, error: (error as Error).message });
-  }
-};
+    
+    // Check for specific error types and return appropriate status codes
+    const errorMessage = (error as Error).message;
+    
+    if (errorMessage === 'Arkkies credentials not configured for this user') {
+      res.status(400).json({ 
+        success: false, 
+        error: 'Please connect to Arkkies first using the login form above.',
+        requiresArkkiesLogin: true
+      });
+      return;
+    }
+    
+    if (errorMessage === 'No active Arkkies passes or subscriptions found for this account') {
+      res.status(400).json({ 
+        success: false, 
+        error: 'No active gym membership found. Please ensure you have an active Arkkies pass or subscription before booking.',
+        requiresActiveMembership: true
+      });
+      return;
+    }
+    
+      if (errorMessage === 'No available booking slots were found for the selected outlet') {
+        res.status(409).json({
+          success: false,
+          error: 'No available slots were found for that outlet. Please pick another time or outlet.',
+          noSlots: true,
+        });
+        return;
+      }
+
+      res.status(500).json({ success: false, error: errorMessage });
+    }
+  };
 
 export const getBookingHistory = async (req: AuthRequest, res: Response): Promise<void> => {
   res.json({ success: true, data: [] });
