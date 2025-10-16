@@ -125,6 +125,7 @@ const fetchJson = async <T>(
 
   if (init.outletHeader) {
     headers['x-ark-outlet'] = init.outletHeader;
+    headers['X-Ark-Outlet'] = init.outletHeader;
   }
 
   const response = await fetch(joinUrl(path), {
@@ -551,6 +552,5 @@ export const listSupportedOutlets = (): Array<{ id: string; name: string; region
   { id: 'AGRDTE01', name: 'Ark Grit • Downtown East' },
   { id: 'AGRWLN01', name: 'Ark Grit • Woodlands' },
 ];
-
 
 
