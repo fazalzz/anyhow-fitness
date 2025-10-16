@@ -356,15 +356,22 @@ const extractItemIds = (payload: ActiveItemList): string[] => {
   return Array.from(ids);
 };
 
-const ensureActiveItemIds = async (jar: CookieJar, outletId: string): Promise<string[]> => {
+const ensureActiveItemIds = async (
+  jar: CookieJar,
+  homeOutletId: string,
+  destinationOutletId?: string,
+): Promise<string[]> => {
   const collected = new Set<string>();
   const endpoints = ['/customer/subscription/active', '/customer/pass/active'];
   const fallbackOutlets = ['AGRBGK01', 'AGROTH01', 'AGRPE01', 'AGRSIM01'];
 
   const outletCandidates: Array<string | null> = [
-    outletId,
+    homeOutletId,
+    destinationOutletId ?? null,
     null,
-    ...fallbackOutlets.filter((candidate) => candidate !== outletId),
+    ...fallbackOutlets.filter(
+      (candidate) => candidate !== homeOutletId && candidate !== destinationOutletId,
+    ),
   ];
 
   const attempted: string[] = [];
@@ -408,7 +415,9 @@ const ensureActiveItemIds = async (jar: CookieJar, outletId: string): Promise<st
 
   if (collected.size === 0) {
     throw new Error(
-      `No active Arkkies passes or subscriptions found for this account (home outlet: ${outletId}, attempted headers: ${attempted.join(
+      `No active Arkkies passes or subscriptions found for this account (home outlet: ${homeOutletId}, destination outlet: ${
+        destinationOutletId ?? 'n/a'
+      }, attempted headers: ${attempted.join(
         ', ',
       )}). Please ensure you have an active membership for this location.`,
     );
@@ -502,7 +511,7 @@ export const bookSlotAndUnlockDoor = async ({
 }> => {
   const { jar } = await ensureSession(userId);
 
-  const itemIds = await ensureActiveItemIds(jar, homeOutletId);
+  const itemIds = await ensureActiveItemIds(jar, homeOutletId, destinationOutletId);
 
   const { data: slotData } = await fetchJson<AvailableSlotResponse>(
     jar,
