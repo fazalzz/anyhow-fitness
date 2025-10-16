@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GYMS, GYM_BRANDS, EXERCISES } from '../constants';
 import { LoggedExercise, ExerciseSet, FrontendWorkout as Workout, Exercise } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -251,7 +251,8 @@ const ExerciseCard: React.FC<{
     onUpdateBrand: (exerciseId: string, brand: string) => void;
     onRemove: (exerciseId: string) => void;
     customExercises: Exercise[];
-}> = ({ loggedExercise, onLogSet, onUpdateBrand, onRemove, customExercises }) => {
+    onPersonalRecord: (info: { exerciseName: string; weight: number; variation: 'Bilateral' | 'Unilateral' }) => void;
+}> = ({ loggedExercise, onLogSet, onUpdateBrand, onRemove, customExercises, onPersonalRecord }) => {
     const [variation, setVariation] = useState<'Bilateral' | 'Unilateral'>('Bilateral');
     const [weight, setWeight] = useState('');
     const [reps, setReps] = useState('');
@@ -283,6 +284,14 @@ const ExerciseCard: React.FC<{
                 pinWeight: pinWeightNum > 0 ? pinWeightNum : undefined,
                 isPR: isNewPR 
             });
+
+            if (isNewPR) {
+                onPersonalRecord({
+                    exerciseName: exerciseInfo.name,
+                    weight: totalWeight,
+                    variation,
+                });
+            }
             setWeight('');
             setReps('');
             setPinWeight('');
@@ -398,6 +407,13 @@ const NewWorkout: React.FC<{
     // Modal state management
     const [modalState, setModalState] = useState<'closed' | 'exercise' | 'custom-exercise'>('closed');
     const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
+    const [prCelebration, setPrCelebration] = useState<{
+        exerciseName: string;
+        weight: number;
+        variation: 'Bilateral' | 'Unilateral';
+    } | null>(null);
+    const celebrationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
 
     // Custom setter that persists to localStorage
     const setSelectedGymBranch = (branch: string) => {
@@ -465,6 +481,87 @@ const NewWorkout: React.FC<{
         
         fetchCustomExercises();
     }, [currentUser]);
+
+    const playCelebrationSound = useCallback(() => {
+        try {
+            const AudioContextClass =
+                window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+            if (!AudioContextClass) {
+                return;
+            }
+
+            if (!audioContextRef.current) {
+                audioContextRef.current = new AudioContextClass();
+            }
+
+            const ctx = audioContextRef.current;
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(440, ctx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.35);
+
+            gain.gain.setValueAtTime(0.001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+
+            oscillator.start();
+            oscillator.stop(ctx.currentTime + 0.6);
+        } catch (error) {
+            console.warn('PR celebration sound failed:', error);
+        }
+    }, []);
+
+    const triggerCelebration = useCallback(
+        (details: { exerciseName: string; weight: number; variation: 'Bilateral' | 'Unilateral' }) => {
+            setPrCelebration(details);
+            playCelebrationSound();
+
+            if (celebrationTimeoutRef.current) {
+                clearTimeout(celebrationTimeoutRef.current);
+            }
+            celebrationTimeoutRef.current = setTimeout(() => {
+                setPrCelebration(null);
+            }, 2200);
+        },
+        [playCelebrationSound],
+    );
+
+    useEffect(() => {
+        return () => {
+            if (celebrationTimeoutRef.current) {
+                clearTimeout(celebrationTimeoutRef.current);
+            }
+            if (audioContextRef.current) {
+                audioContextRef.current.close().catch(() => {});
+                audioContextRef.current = null;
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        const styleId = 'pr-celebration-keyframes';
+        if (typeof document !== 'undefined' && !document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                @keyframes pr-pop {
+                    0% { transform: scale(0.6); opacity: 0; }
+                    60% { transform: scale(1.05); opacity: 1; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }, []);
 
     const addExerciseToSession = (exercise: Exercise) => {
         setModalState('closed');
@@ -567,6 +664,42 @@ const NewWorkout: React.FC<{
 
     return (
         <div>
+            {prCelebration && (
+                <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+                    <div className="relative flex items-center justify-center">
+                        <span
+                            className="absolute w-4 h-4 bg-yellow-300 rounded-full animate-ping"
+                            style={{ top: '-3.5rem', left: '50%', transform: 'translateX(-50%)', animationDuration: '1s' }}
+                        />
+                        <span
+                            className="absolute w-3 h-3 bg-yellow-200 rounded-full animate-ping"
+                            style={{ top: '50%', left: '-3.5rem', animationDelay: '0.15s', animationDuration: '1.1s' }}
+                        />
+                        <span
+                            className="absolute w-3 h-3 bg-yellow-200 rounded-full animate-ping"
+                            style={{ top: '50%', right: '-3.5rem', animationDelay: '0.25s', animationDuration: '1.1s' }}
+                        />
+                        <span
+                            className="absolute w-2 h-2 bg-yellow-100 rounded-full animate-ping"
+                            style={{ bottom: '-3rem', left: '50%', transform: 'translateX(-50%)', animationDelay: '0.35s', animationDuration: '1.2s' }}
+                        />
+                        <div className="relative flex flex-col items-center justify-center px-10 py-8 bg-black/80 rounded-3xl border border-yellow-300 shadow-2xl backdrop-blur-md animate-[pr-pop_0.4s_ease-out]">
+                            <div
+                                className="text-6xl font-black text-yellow-300 mb-2 drop-shadow-lg"
+                                style={{ textShadow: '0 0 16px rgba(250, 204, 21, 0.85)' }}
+                            >
+                                PR!
+                            </div>
+                            <p className="text-brand-primary-text text-center font-semibold">
+                                {prCelebration.exerciseName}
+                                <span className="block text-sm text-yellow-200 mt-1">
+                                    {prCelebration.weight.toFixed(1)}kg • {prCelebration.variation}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Modals */}
             {modalState === 'exercise' && (
                 <UnifiedExerciseSelectionModal 
@@ -623,6 +756,7 @@ const NewWorkout: React.FC<{
                     onUpdateBrand={handleUpdateBrand}
                     onRemove={handleRemoveExercise}
                     customExercises={customExercises}
+                    onPersonalRecord={triggerCelebration}
                 />
             ))}
             
