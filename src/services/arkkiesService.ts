@@ -338,20 +338,47 @@ const pickEarliestSlot = (slots: BookingSlot[]): BookingSlot | null => {
   };
 };
 
+const collectIds = (value: unknown, bucket: Set<string>): void => {
+  if (!value) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectIds(entry, bucket));
+    return;
+  }
+
+  if (typeof value !== 'object') {
+    return;
+  }
+
+  Object.entries(value as Record<string, unknown>).forEach(([key, entry]) => {
+    if (typeof entry === 'string') {
+      const lowerKey = key.toLowerCase();
+      const looksLikeId =
+        lowerKey === 'id' ||
+        lowerKey.endsWith('_id') ||
+        lowerKey.endsWith('id') ||
+        lowerKey.includes('item') ||
+        lowerKey.includes('pass');
+
+      if (looksLikeId && entry.trim().length >= 5) {
+        bucket.add(entry.trim());
+      }
+    } else if (typeof entry === 'object' && entry) {
+      collectIds(entry, bucket);
+    }
+  });
+};
+
 const extractItemIds = (payload: ActiveItemList): string[] => {
   const ids = new Set<string>();
-  const visit = (list: Array<{ id?: string }> | undefined) => {
-    (list ?? []).forEach((item) => {
-      if (item?.id) {
-        ids.add(item.id);
-      }
-    });
-  };
 
-  visit(payload.data);
-  visit(payload.items);
-  visit(payload.subscriptions);
-  visit(payload.passes);
+  collectIds(payload.data, ids);
+  collectIds(payload.items, ids);
+  collectIds(payload.subscriptions, ids);
+  collectIds(payload.passes, ids);
+  collectIds(payload, ids);
 
   return Array.from(ids);
 };
