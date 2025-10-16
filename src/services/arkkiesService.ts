@@ -358,54 +358,60 @@ const extractItemIds = (payload: ActiveItemList): string[] => {
 
 const ensureActiveItemIds = async (jar: CookieJar, outletId: string): Promise<string[]> => {
   const collected = new Set<string>();
-
   const endpoints = ['/customer/subscription/active', '/customer/pass/active'];
+  const fallbackOutlets = ['AGRBGK01', 'AGROTH01', 'AGRPE01', 'AGRSIM01'];
 
-  console.log(`🔍 Checking for active passes/subscriptions for outlet: ${outletId}`);
+  const outletCandidates: Array<string | null> = [
+    outletId,
+    null,
+    ...fallbackOutlets.filter((candidate) => candidate !== outletId),
+  ];
 
-  // Try the specified outlet first
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`📡 Fetching from ${endpoint} with outlet header: ${outletId}`);
-      const { data } = await fetchJson<ActiveItemList>(jar, endpoint, { outletHeader: outletId });
-      const itemIds = extractItemIds(data);
-      console.log(`✅ Found ${itemIds.length} items from ${endpoint}:`, itemIds);
-      itemIds.forEach((id) => collected.add(id));
-    } catch (error) {
-      console.warn(`❌ Failed to load Arkkies active items from ${endpoint} (outlet: ${outletId}):`, (error as Error).message);
+  const attempted: string[] = [];
+
+  for (const candidate of outletCandidates) {
+    const headerLabel = candidate ?? 'none';
+
+    if (attempted.includes(headerLabel)) {
+      continue;
     }
-  }
+    attempted.push(headerLabel);
 
-  // If no items found with the specified outlet, try with other common outlets
-  if (collected.size === 0) {
-    const alternativeOutlets = ['AGRBGK01', 'AGROTH01', 'AGRPE01', 'AGRSIM01']; // Common Arkkies outlets
-    const outletsToTry = alternativeOutlets.filter(outlet => outlet !== outletId);
-    
-    console.log(`🔄 No items found for ${outletId}, trying alternative outlets: ${outletsToTry.join(', ')}`);
-    
-    for (const altOutlet of outletsToTry) {
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`📡 Fetching from ${endpoint} with alternative outlet: ${altOutlet}`);
-          const { data } = await fetchJson<ActiveItemList>(jar, endpoint, { outletHeader: altOutlet });
-          const itemIds = extractItemIds(data);
-          if (itemIds.length > 0) {
-            console.log(`✅ Found ${itemIds.length} items from ${endpoint} (outlet: ${altOutlet}):`, itemIds);
-            itemIds.forEach((id) => collected.add(id));
-            break; // Found items, stop trying other outlets for this endpoint
-          }
-        } catch (error) {
-          console.warn(`❌ Failed to load Arkkies active items from ${endpoint} (outlet: ${altOutlet}):`, (error as Error).message);
-        }
+    console.log(`[arkkies] Resolving active items using outlet header: ${headerLabel}`);
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`[arkkies] Fetching ${endpoint} (outlet header: ${headerLabel})`);
+        const { data } = await fetchJson<ActiveItemList>(jar, endpoint, {
+          outletHeader: candidate ?? undefined,
+        });
+        const itemIds = extractItemIds(data);
+        console.log(
+          `[arkkies] Retrieved ${itemIds.length} active items from ${endpoint} (outlet header: ${headerLabel})`,
+          itemIds,
+        );
+        itemIds.forEach((id) => collected.add(id));
+      } catch (error) {
+        console.warn(
+          `[arkkies] Failed to load active items from ${endpoint} (outlet header: ${headerLabel}):`,
+          (error as Error).message,
+        );
       }
-      if (collected.size > 0) break; // Found items, stop trying other outlets
+    }
+
+    if (collected.size > 0) {
+      break;
     }
   }
 
-  console.log(`📊 Total active items found: ${collected.size}`, Array.from(collected));
+  console.log('[arkkies] Total active items detected:', Array.from(collected));
 
   if (collected.size === 0) {
-    throw new Error(`No active Arkkies passes or subscriptions found for this account (outlet: ${outletId}). Please ensure you have an active membership for this location.`);
+    throw new Error(
+      `No active Arkkies passes or subscriptions found for this account (home outlet: ${outletId}, attempted headers: ${attempted.join(
+        ', ',
+      )}). Please ensure you have an active membership for this location.`,
+    );
   }
 
   return Array.from(collected);
@@ -552,5 +558,7 @@ export const listSupportedOutlets = (): Array<{ id: string; name: string; region
   { id: 'AGRDTE01', name: 'Ark Grit • Downtown East' },
   { id: 'AGRWLN01', name: 'Ark Grit • Woodlands' },
 ];
+
+
 
 
