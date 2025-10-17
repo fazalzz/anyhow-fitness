@@ -13,8 +13,70 @@ const ACCESS_TOKEN_EXPIRY: SignOptions['expiresIn'] = (process.env.ACCESS_TOKEN_
 const REFRESH_TOKEN_EXPIRY: SignOptions['expiresIn'] = (process.env.REFRESH_TOKEN_EXPIRY as SignOptions['expiresIn']) || '30d';
 
 const TWO_FACTOR_EXPIRY_SECONDS = parseInt(process.env.TWO_FACTOR_EXPIRY_SECONDS ?? '600', 10);
+const TRUSTED_DEVICE_TTL_DAYS = Math.max(parseInt(process.env.TRUSTED_DEVICE_TTL_DAYS ?? '180', 10), 1);
 
 const generateTwoFactorCode = (): string => Math.floor(100000 + Math.random() * 900000).toString();
+
+const hashTrustedDeviceToken = (token: string): string =>
+  crypto.createHash('sha256').update(token).digest('hex');
+
+const generateTrustedDeviceToken = (): string => crypto.randomBytes(48).toString('hex');
+
+const cleanupExpiredTrustedDevices = async (): Promise<void> => {
+  await db.query(
+    'DELETE FROM user_trusted_devices WHERE last_used_at < NOW() - $1::interval',
+    [`${TRUSTED_DEVICE_TTL_DAYS} days`],
+  );
+};
+
+const upsertTrustedDevice = async (userId: string, rawToken: string, label?: string | null): Promise<void> => {
+  const hash = hashTrustedDeviceToken(rawToken);
+  const normalizedLabel =
+    label && label.trim().length > 0 ? label.trim().slice(0, 255) : null;
+
+  await db.query(
+    `INSERT INTO user_trusted_devices (user_id, device_token_hash, device_label, last_used_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (user_id, device_token_hash)
+     DO UPDATE SET device_label = EXCLUDED.device_label, last_used_at = NOW()`,
+    [userId, hash, normalizedLabel],
+  );
+};
+
+const validateTrustedDevice = async (userId: string, rawToken: string): Promise<boolean> => {
+  const token = rawToken.trim();
+  if (!token) {
+    return false;
+  }
+
+  const hash = hashTrustedDeviceToken(token);
+  const result = await db.query(
+    'SELECT id, last_used_at FROM user_trusted_devices WHERE user_id = $1 AND device_token_hash = $2',
+    [userId, hash],
+  );
+
+  if (result.rows.length === 0) {
+    return false;
+  }
+
+  const record = result.rows[0];
+  const lastUsedAt = record.last_used_at ? new Date(record.last_used_at) : null;
+  const ttlMs = TRUSTED_DEVICE_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+  if (
+    lastUsedAt &&
+    !Number.isNaN(lastUsedAt.getTime()) &&
+    Number.isFinite(ttlMs) &&
+    ttlMs > 0 &&
+    Date.now() - lastUsedAt.getTime() > ttlMs
+  ) {
+    await db.query('DELETE FROM user_trusted_devices WHERE id = $1', [record.id]);
+    return false;
+  }
+
+  await db.query('UPDATE user_trusted_devices SET last_used_at = NOW() WHERE id = $1', [record.id]);
+  return true;
+};
 
 const createTwoFactorSession = async (user: any): Promise<{ token: string; debugCode?: string }> => {
   if (!user.email) {
@@ -127,7 +189,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { pin } = req.body;
+    const { pin, trustedDeviceToken } = req.body as { pin?: string; trustedDeviceToken?: string };
 
     const identifierCandidates = [
       req.body.name,
@@ -166,6 +228,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    await cleanupExpiredTrustedDevices();
+
     if (!user.email) {
       res.status(400).json({ error: 'Email-based two-factor authentication is not available for this account' });
       return;
@@ -177,7 +241,23 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (typeof trustedDeviceToken === 'string') {
+      const isTrusted = await validateTrustedDevice(user.id, trustedDeviceToken);
+      if (isTrusted) {
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+        res.json({
+          message: 'Login successful',
+          user: mapUserToResponse(user),
+          accessToken,
+          refreshToken,
+        });
+        return;
+      }
+    }
+
     await cleanupTwoFactorSessions();
+    await cleanupExpiredTrustedDevices();
     const { token, debugCode } = await createTwoFactorSession(user);
 
     res.json({
@@ -240,11 +320,18 @@ export const verifyTwoFactorCode = async (req: Request, res: Response): Promise<
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
+    const deviceLabelRaw =
+      (typeof req.body?.deviceLabel === 'string' ? req.body.deviceLabel : undefined) ??
+      (typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined);
+    const trustedDeviceToken = generateTrustedDeviceToken();
+    await upsertTrustedDevice(user.id, trustedDeviceToken, deviceLabelRaw ?? null);
+
     res.json({
       message: 'Two-factor verification successful',
       user: mapUserToResponse(user),
       accessToken,
       refreshToken,
+      trustedDeviceToken,
     });
   } catch (error) {
     console.error('Verify two-factor error:', error);

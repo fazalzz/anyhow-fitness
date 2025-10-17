@@ -6,7 +6,7 @@ import type {
   ApiResponse
 } from './types';
 
-type LoginSuccessPayload = { user: User; accessToken: string; refreshToken: string };
+type LoginSuccessPayload = { user: User; accessToken: string; refreshToken: string; trustedDeviceToken?: string };
 type LoginTwoFactorPayload = { twoFactorRequired: true; twoFactorToken: string; email: string; message?: string };
 
 // @ts-ignore - Vite's env type  
@@ -328,14 +328,23 @@ export const login = async (
     }
   }
 
-  const result = await apiRequest<{user: User; accessToken: string; refreshToken: string}>(
+  const storedTrustedDeviceToken = localStorage.getItem('trustedDeviceToken');
+  if (storedTrustedDeviceToken) {
+    body.trustedDeviceToken = storedTrustedDeviceToken;
+  }
+
+  const result = await apiRequest<LoginSuccessPayload | LoginTwoFactorPayload>(
     '/auth/login',
     createRequestOptions('POST', body)
   );
   
-  if (result.success && result.data?.accessToken) {
-    localStorage.setItem('accessToken', result.data.accessToken);
-    localStorage.setItem('refreshToken', result.data.refreshToken);
+  if (result.success && result.data && 'accessToken' in result.data) {
+    const payload = result.data as LoginSuccessPayload;
+    localStorage.setItem('accessToken', payload.accessToken);
+    localStorage.setItem('refreshToken', payload.refreshToken);
+    if (payload.trustedDeviceToken) {
+      localStorage.setItem('trustedDeviceToken', payload.trustedDeviceToken);
+    }
   }
 
   return result;
@@ -345,7 +354,12 @@ export const apiVerifyTwoFactor = async (
   token: string,
   code: string
 ): Promise<ApiResponse<LoginSuccessPayload>> => {
-  const payload = { token, code };
+  const deviceLabel =
+    typeof navigator !== 'undefined'
+      ? `${navigator.platform || 'web'} | ${navigator.userAgent}`.slice(0, 180)
+      : 'web-client';
+
+  const payload = { token, code, deviceLabel };
   const result = await apiRequest<LoginSuccessPayload>(
     '/auth/verify-2fa',
     createRequestOptions('POST', payload)
@@ -354,6 +368,9 @@ export const apiVerifyTwoFactor = async (
   if (result.success && result.data?.accessToken) {
     localStorage.setItem('accessToken', result.data.accessToken);
     localStorage.setItem('refreshToken', result.data.refreshToken);
+    if (result.data.trustedDeviceToken) {
+      localStorage.setItem('trustedDeviceToken', result.data.trustedDeviceToken);
+    }
   }
 
   return result;

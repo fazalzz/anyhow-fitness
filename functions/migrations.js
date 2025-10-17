@@ -1,4 +1,4 @@
-const {query} = require("./database");
+﻿const {query} = require("./database");
 
 // Migration: Initial Schema
 const runInitialSchemaMigration = async () => {
@@ -125,11 +125,26 @@ const runInitialSchemaMigration = async () => {
     await query(`
       CREATE INDEX IF NOT EXISTS idx_custom_exercises_muscle_group ON custom_exercises(muscle_group)
     `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_trusted_devices (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_token_hash TEXT NOT NULL,
+        device_label TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(user_id, device_token_hash)
+      )
+    `);
 
-    console.log("✅ Initial schema migration completed successfully!");
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_user_trusted_devices_user_id ON user_trusted_devices(user_id)
+    `);
+
+    console.log("Γ£à Initial schema migration completed successfully!");
     return true;
   } catch (error) {
-    console.error("❌ Migration failed:", error);
+    console.error("Γ¥î Migration failed:", error);
     throw error;
   }
 };
